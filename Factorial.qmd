@@ -1,0 +1,44 @@
+Refer to manuscript: (link)
+
+#### Authors: Srikant Venkitachalam,.... Elizabeth King
+
+# [Selection for improved flight performance]{.underline}
+
+## Flight performance factorial assay:
+
+## Effects of Selection, Light Status and Fan Status on flight performance
+
+See Methods section for details of experimental set-up.
+
+### Call relevant packages
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(cowplot)
+library(AICcmodavg)
+```
+
+### Import and wrangle data
+
+Imported into a tibble "Flight_data"
+
+```{r}
+Flight_data <- read_excel("FF_Phenotyping_Flight_Factorial.xlsx")
+
+#head(Flight_data)
+
+Flight_data <- Flight_data %>% 
+  mutate("ChamberNum" = parse_number(Chamber), "Fly_count" = replace_na(`Fly Count`, 0)) %>%
+  mutate_at(c("Selection", "PopReplicate", "RunSet", "Light", "Fan"), factor)
+
+```
+
+### Calculating total flies per run, and per vial
+
+```{r}
+Totals <- Flight_data %>% 
+  group_by(Selection, PopReplicate, RunSet, Light, Fan, Vials) %>% 
+  summarise(Flies_per_run = sum(Fly_count)) %>% 
+  mutate(Flies_per_vial = Flies_per_run/Vials)
+```
