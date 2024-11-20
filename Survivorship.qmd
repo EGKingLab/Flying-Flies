@@ -1,0 +1,56 @@
+Refer to manuscript: (link)
+
+#### Authors: Srikant Venkitachalam,.... Elizabeth King
+
+# Selection for improved flight performance
+
+## Egg-to-adult survivorship assay
+
+See Methods section for details of experimental set-up.
+
+### Call relevant packages
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(cowplot)
+library(lmerTest)
+
+theme_set(theme_cowplot())
+```
+
+### Import and wrangle data
+
+Imported into a tibble "Surv_data_raw" and processed into "Surv_data" which contains proportion survivorship per vial. The initial egg count for each vial was 70.
+
+```{r}
+Surv_data_raw <- read_excel("FF_Survivorship.xlsx")
+#head(Surv_data_raw)
+
+Egg_count = 70 #See methods
+
+Surv_data <- Surv_data_raw %>% group_by(Selection, Replicate, Vial) %>% summarize(Total_flies = sum(Count)) %>% mutate(Surv = Total_flies/Egg_count)
+
+Surv_data <- Surv_data %>% mutate(PopRep = paste(Selection, Replicate, sep="_")) %>% 
+  mutate(VialNum = paste(PopRep, Vial, sep = "_V")) %>% 
+  mutate_at(c("Selection", "PopRep", "VialNum"), factor)
+
+# Remove anomalous points (greater than 70 Egg collection, or very early F2 eclosion)
+
+Surv_data <- Surv_data %>% filter(Surv < 1)
+```
+
+#### Analysis
+
+```{r}
+fit_surv1 <- lmer(Surv ~ Selection + (1|PopRep), data = Surv_data)
+#fit_surv2 <- lmer(Surv ~ Selection + (1|PopRep) + (1|VialNum), data = Surv_data) #this leads to an error due to no replication for nested vial IDs. 
+
+anova(fit_surv1)
+```
+
+### Plots
+
+```{r}
+ggplot(data = Surv_data, aes(x = Selection, y = Surv)) + geom_boxplot(outlier.shape = NA) + geom_point(position = position_jitter(width = 0.1), size = 1.5, color = "steelblue") + ylim(0.75, 1) + stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
+```
