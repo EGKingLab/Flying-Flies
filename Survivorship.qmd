@@ -52,5 +52,5 @@ anova(fit_surv1)
 ### Plots
 
 ```{r}
-ggplot(data = Surv_data, aes(x = Selection, y = Surv)) + geom_boxplot(outlier.shape = NA) + geom_point(position = position_jitter(width = 0.1), size = 1.5, color = "steelblue") + ylim(0.75, 1) + stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
+ggplot(data = Surv_data, aes(x = Selection, y = Surv)) + geom_boxplot(outlier.shape = NA) + geom_point(aes(shape = factor(Replicate)), position = position_jitter(width = 0.1), size = 1.5, color = "steelblue") + ylim(0.75, 1) + stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
 ```

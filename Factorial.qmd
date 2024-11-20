@@ -98,7 +98,7 @@ fit_mean_6 <- lmer(
   meandist ~ Selection * Light_Status * Fan_Status + (1|PopRep) + (1|RunSetNest), 
   data = Mean_dist, REML = FALSE)
 
-fit_mean_7 <- lmer(meandist ~ Selection + Light_Status + (1|PopRep) + (1|PopRep:Light_Status) + Selection:Light_Status, data = Mean_dist)
+
 
 
 aictab(cand.set = list(fit_mean_1, fit_mean_2, fit_mean_3, fit_mean_4, fit_mean_5, fit_mean_6))
@@ -110,11 +110,18 @@ Based on AICc scores, 'fit_mean_1' is selected. This considers only Selection.
 model 2 (additive Selection, Light) and model 4 (additive Selection, Light, Fan) are also supported.
 
 ```{r}
+fit_mean_1_reml <- lmer(meandist ~ Selection + (1|PopRep), 
+                   data = Mean_dist, REML = TRUE)
+
+
+fit_mean_3_reml <- lmer(meandist ~ Selection + Light_Status + (1|PopRep) + (1|PopRep:Light_Status) + Selection:Light_Status, data = Mean_dist, REML = TRUE)
 
 fit_mean_4_reml <- lmer(meandist ~ Selection + Light_Status + Fan_Status + (1|PopRep) + (1|PopRep:Light_Status) + (1|PopRep:Fan_Status), 
                    data = Mean_dist, REML = TRUE)
 
 fit_mean_5_reml <- lmer(meandist ~ Selection * Light_Status * Fan_Status + (1|PopRep)+ (1|PopRep:Light_Status) + (1|PopRep:Fan_Status) + (1|PopRep:Light_Status:Fan_Status), 
                    data = Mean_dist, REML = TRUE)
-anova(fit_mean_5_reml)
+
+anova(fit_mean_1_reml)
+
 ```
