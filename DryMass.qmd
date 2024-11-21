@@ -1,0 +1,49 @@
+Refer to manuscript: (link)
+
+#### Authors: Srikant Venkitachalam,.... Elizabeth King
+
+# Selection for improved flight performance
+
+## Dry mass of adults
+
+See Methods section for details of experimental set-up.
+
+### Call relevant packages
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(cowplot)
+library(AICcmodavg)
+library(lmerTest)
+
+theme_set(theme_cowplot())
+```
+
+### Import and wrangle data
+
+Imported into a tibble "Mass_data_raw" and processed into "Mass_data"
+
+```{r}
+Mass_data_raw <- read_excel("DryMassData.xlsx", na = "NA")
+
+Mass_data_raw <- Mass_data_raw %>% 
+  mutate(DryMassTechnical = `DryMass(10e-4 g)`/BatchSize) %>% 
+  drop_na()
+
+Mass_data <- Mass_data_raw %>% group_by(Selection, PopReplicate, Vial, Sex, VialSample) %>% 
+  summarise(DryMass = mean(DryMassTechnical)) %>% 
+  mutate(PopRepNest = paste(Selection, PopReplicate, sep = "_")) %>% 
+  mutate(VialNest = paste(PopRepNest, Vial, sep = "_V")) %>% 
+  mutate_at(c("Selection", "PopReplicate", "PopRepNest", "Sex", "VialNest"), factor)
+  
+```
+
+### Plots
+
+```{r}
+ggplot(data = Mass_data, aes(x = Selection, y = DryMass, shape = PopReplicate)) + geom_point( color = 'steelblue1', position = position_jitter(width = 0.1)) + facet_grid(~Sex) +
+  stat_summary(fun = 'mean', color = 'red', size = 4, shape = '-')
+```
+
+### Analysis
