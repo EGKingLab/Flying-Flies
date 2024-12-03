@@ -1,0 +1,29 @@
+Refer to manuscript: (link)
+
+#### Authors: Srikant Venkitachalam,.... Elizabeth King
+
+# Selection for improved flight performance
+
+## Fecundity
+
+See Methods section for details of experimental set-up.
+
+### Call relevant packages
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(cowplot)
+library(AICcmodavg)
+library(lmerTest)
+
+theme_set(theme_cowplot())
+```
+
+### Import and wrangle data
+
+Imported into a tibble "Fecund_data_raw" and processed into "Fecund_data"
+
+```{r}
+Fecund_data_raw <- read_excel("FF_Fecundity.xlsx")
+```

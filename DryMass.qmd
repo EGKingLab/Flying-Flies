@@ -27,6 +27,7 @@ Imported into a tibble "Mass_data_raw" and processed into "Mass_data"
 ```{r}
 Mass_data_raw <- read_excel("DryMassData.xlsx", na = "NA")
 
+# Get dry mass per fly
 Mass_data_raw <- Mass_data_raw %>% 
   mutate(DryMassTechnical = `DryMass(10e-4 g)`/BatchSize) %>% 
   drop_na()
@@ -47,3 +48,16 @@ ggplot(data = Mass_data, aes(x = Selection, y = DryMass, shape = PopReplicate)) 
 ```
 
 ### Analysis
+
+```{r}
+fit_mass_1 <- lmer(DryMass ~ Selection + (1|PopRepNest) + Sex + (1|PopRepNest:Sex) + Selection:Sex, 
+                   data = Mass_data, REML = T)
+
+fit_mass_2 <- lmer(DryMass ~ Sex + (1|PopReplicate:Sex), 
+                   data = Mass_data, REML = T)
+
+fit_mass_3 <- lmer(DryMass ~ Selection + (1|PopRepNest), 
+                   data = Mass_data, REML = T)
+
+anova(fit_mass_3)
+```
