@@ -59,5 +59,18 @@ fit_mass_2 <- lmer(DryMass ~ Sex + (1|PopReplicate:Sex),
 fit_mass_3 <- lmer(DryMass ~ Selection + (1|PopRepNest), 
                    data = Mass_data, REML = T)
 
-anova(fit_mass_3)
+anova(fit_mass_2)
+```
+
+```{r}
+fit_mass_1_ML <- lmer(DryMass ~ Selection + (1|PopRepNest) + Sex + (1|PopRepNest:Sex) + Selection:Sex, 
+                   data = Mass_data, REML = F)
+
+fit_mass_2_ML <- lmer(DryMass ~ Sex + (1|PopReplicate:Sex), 
+                   data = Mass_data, REML = F)
+
+fit_mass_3_ML <- lmer(DryMass ~ Selection + (1|PopRepNest), 
+                   data = Mass_data, REML = F)
+
+aictab(cand.set = list(fit_mass_1_ML, fit_mass_2_ML, fit_mass_3_ML))
 ```
