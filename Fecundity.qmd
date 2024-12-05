@@ -16,6 +16,7 @@ library(tidyverse)
 library(cowplot)
 library(AICcmodavg)
 library(lmerTest)
+library(nlme)
 
 theme_set(theme_cowplot())
 ```
@@ -26,4 +27,42 @@ Imported into a tibble "Fecund_data_raw" and processed into "Fecund_data"
 
 ```{r}
 Fecund_data_raw <- read_excel("FF_Fecundity.xlsx")
+
+Fecund_data <- Fecund_data_raw %>% 
+  mutate(TotF = PopFemales + Crush_or_Esc_F + Dead_F,
+         TotPop = 
+           PopMales + PopFemales + 
+           Crush_or_Esc_M + Crush_or_Esc_F +
+           Crush_or_Esc_U + Dead_M + Dead_F) %>% 
+  mutate(PopRep = paste(Selection, Replicate, sep = "_")) %>% 
+  mutate(PlateNest = paste(PopRep, Plate, sep = "_")) %>% 
+  mutate(Ind_Fec = Fecundity/TotF) %>% 
+  mutate_at(c("Selection", "Replicate", "PopRep", "PlateNest"),
+            factor)
+
+Mean_fec <- Fecund_data %>% group_by(Selection, PopRep) %>% summarise(M_Fec = mean(Ind_Fec))
+
+
+```
+
+### Analysis
+
+Fit full model (with 3 replicates per treatment combination)
+
+NOTE: lmer can't fit model with plates nested within population replicates, because there is no replication within plate readings.
+
+```{r}
+fit_Fec_1 <- lmer(data = Fecund_data, REML = T,
+  Ind_Fec ~ Selection + (1|PopRep))
+
+anova(fit_Fec_1)
+```
+
+Fit mean fecundity (average across all three plates).
+
+```{r}
+fit_Fec_mean <- lme(data = Mean_fec, method = "REML",
+                     M_Fec ~ Selection, random = ~1|PopRep)
+
+anova(fit_Fec_mean)
 ```
