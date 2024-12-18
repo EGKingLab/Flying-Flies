@@ -1,0 +1,27 @@
+## Selection for Improved Flight Performance
+
+Authors:
+
+Elizabeth G. King (**EGK**)
+
+Kevin M. Middleton (**KMM**)
+
+Srikant Venkitachalam (**SRI**)
+
+### [Guide for running code]{.underline}
+
+### [Notes]{.underline}
+
+#### 2024_12_18 SRI: 
+
+Set up project notes file and organized folder as discussed between EGK, KMM and SRI. Project organization is as follows:
+
+**Raw data**: Holds raw data files
+
+**Processed data**: Any cleaned up/processed data that needs to be saved
+
+**Big data**: Mainly for genomics files which are large
+
+**Functions**: common functions that are needed across plots (eg. ggplot themes), or for processing data.
+
+**Flight_Exp_Evo_1**: Code and plots required for the first planned manuscript on selection for improved flight performance.
