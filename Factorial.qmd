@@ -18,6 +18,7 @@ library(tidyverse)
 library(cowplot)
 library(AICcmodavg)
 library(lmerTest)
+library(effectsize)
 
 theme_set(theme_cowplot())
 ```
@@ -124,4 +125,52 @@ fit_mean_5_reml <- lmer(meandist ~ Selection * Light_Status * Fan_Status + (1|Po
 
 anova(fit_mean_1_reml)
 
+```
+
+### Calculating effect sizes
+
+Both eta-squared and Cohen's F (analogous to Cohen's D when there are 2 levels) are calculated for the models with the highest support according to AICc.
+
+```{r}
+eta_squared(fit_mean_1)
+eta_squared(fit_mean_4)
+eta_squared(fit_mean_2)
+eta_squared(fit_mean_5)
+```
+
+```{r}
+cohens_f(fit_mean_4)
+cohens_f(fit_mean_2)
+cohens_f(fit_mean_5)
+```
+
+## Plots
+
+All plots made are for factors included in the best supported models.
+
+#### Main effect of Selection
+
+```{r}
+ggplot(data = Mean_dist, aes(x = Selection, y = meandist)) + 
+  geom_boxplot(outlier.shape = NA, fill = "steelblue", color = "darkblue", alpha = 0.5) +
+  geom_point(aes(shape = PopReplicate), color = "darkblue", position = position_jitter(width = 0.1)) +
+  stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
+```
+
+#### Main effect of Light Status
+
+```{r}
+ggplot(data = Mean_dist, aes(x = Light_Status, y = meandist)) + 
+  geom_boxplot(outlier.shape = NA, color = "orange2", alpha = 0.5) +
+  geom_point(aes(shape = PopReplicate), color = "orange2", position = position_jitter(width = 0.1)) +
+  stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
+```
+
+#### Main effect of Fan Status
+
+```{r}
+ggplot(data = Mean_dist, aes(x = Fan_Status, y = meandist)) + 
+  geom_boxplot(outlier.shape = NA, color = "purple4", alpha = 0.5) +
+  geom_point(aes(shape = PopReplicate), color = "purple4", position = position_jitter(width = 0.1)) +
+  stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
 ```

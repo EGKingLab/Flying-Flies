@@ -66,3 +66,14 @@ fit_Fec_mean <- lme(data = Mean_fec, method = "REML",
 
 anova(fit_Fec_mean)
 ```
+
+## Plots
+
+```{r}
+ggplot(data = Fecund_data, aes(x = Selection, y = Ind_Fec)) +
+  geom_boxplot(outlier.shape = NA) + 
+  geom_point(aes(shape = Replicate), 
+             position = position_jitter(width = 0.1), 
+             size = 1.5, color = "steelblue") + 
+ stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
+```

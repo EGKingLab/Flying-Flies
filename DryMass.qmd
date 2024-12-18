@@ -16,6 +16,7 @@ library(tidyverse)
 library(cowplot)
 library(AICcmodavg)
 library(lmerTest)
+library(effectsize)
 
 theme_set(theme_cowplot())
 ```
@@ -40,13 +41,6 @@ Mass_data <- Mass_data_raw %>% group_by(Selection, PopReplicate, Vial, Sex, Vial
   
 ```
 
-### Plots
-
-```{r}
-ggplot(data = Mass_data, aes(x = Selection, y = DryMass, shape = PopReplicate)) + geom_point( color = 'steelblue1', position = position_jitter(width = 0.1)) + facet_grid(~Sex) +
-  stat_summary(fun = 'mean', color = 'red', size = 4, shape = '-')
-```
-
 ### Analysis
 
 ```{r}
@@ -59,7 +53,7 @@ fit_mass_2 <- lmer(DryMass ~ Sex + (1|PopReplicate:Sex),
 fit_mass_3 <- lmer(DryMass ~ Selection + (1|PopRepNest), 
                    data = Mass_data, REML = T)
 
-anova(fit_mass_2)
+anova(fit_mass_1)
 ```
 
 ```{r}
@@ -74,3 +68,21 @@ fit_mass_3_ML <- lmer(DryMass ~ Selection + (1|PopRepNest),
 
 aictab(cand.set = list(fit_mass_1_ML, fit_mass_2_ML, fit_mass_3_ML))
 ```
+
+### Calculating effect size
+
+```{r}
+cohens_f(fit_mass_1)
+```
+
+### Plots
+
+```{r}
+ggplot(data = Mass_data, aes(x = Selection, y = DryMass)) +
+  geom_boxplot(color = 'darkblue') +
+  geom_point(aes(shape = PopReplicate), color = 'steelblue1', position = position_jitter(width = 0.1)) +
+  facet_grid(~Sex) +
+  stat_summary(fun = 'mean', color = 'red', size = 4, shape = '-')
+```
+
+### 

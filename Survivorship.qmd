@@ -42,6 +42,8 @@ Surv_data <- Surv_data %>% filter(Surv < 1)
 
 #### Analysis
 
+NOTE: Transformation necessary?
+
 ```{r}
 fit_surv1 <- lmer(Surv ~ Selection + (1|PopRep), data = Surv_data)
 #fit_surv2 <- lmer(Surv ~ Selection + (1|PopRep) + (1|VialNum), data = Surv_data) #this leads to an error due to no replication for nested vial IDs. 
