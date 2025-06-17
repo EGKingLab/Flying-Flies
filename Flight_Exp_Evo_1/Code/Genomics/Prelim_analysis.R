@@ -37,4 +37,3 @@ final.out$Pval_adj <- p.adjust(output, method = "fdr")
 
 saveRDS(final.out, file = "../../../Big_data/Prelim_Scan.RDS")
 
-rr <- readRDS("../../../Big_data/Prelim_Scan.RDS")

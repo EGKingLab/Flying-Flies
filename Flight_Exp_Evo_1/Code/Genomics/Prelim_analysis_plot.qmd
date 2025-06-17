@@ -1,0 +1,39 @@
+---
+title: "Prelim_analysis_plot"
+format: html
+editor: visual
+---
+
+## Setup & Read in data
+
+```{r}
+library(tidyverse)
+library(cowplot)
+theme_set(theme_cowplot())
+rr <- readRDS("../../../Big_data/Prelim_Scan.RDS")
+
+```
+
+
+## Make genome scan plot
+
+```{r}
+# remove NAs & -log10 p vals
+# drop some very high - probably suspect p values
+pp <- rr |>
+  drop_na()|>
+  mutate(logPadj= -log10(Pval_adj)) |>
+  filter(CHROM %in% c("2L","2R","3L","3R","X")) |>
+  filter(logPadj < 25)
+
+
+scanplot <- pp |>
+  ggplot(aes(POS,logPadj)) +
+  geom_point(alpha = 1/8, size = 0.25) +
+  facet_grid(cols = vars(CHROM))
+
+
+ggsave(scanplot, filename = "../../Plots/Prelim_scan.jpeg", dpi = 400, width = 12, height = 6)
+
+```
+
