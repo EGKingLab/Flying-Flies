@@ -12,20 +12,15 @@ Srikant Venkitachalam (**SRI**)
 
 ### [Notes]{.underline}
 
-#### 2025_06_17 EGK: 
+#### 2025_06_17 EGK:
 
 Processing initial SNP results- preliminary look. These large files are saved in Big_data and not tracked by git. First convert the vcf file into a snp table using a perl script and running the following:
 
 `perl SNPtable_parseVCF.pl 8 0 "fly-result.hdflt.SNP.vcf" > FlyingFlies_SNPtable.txt &`
 
-Prelim_analysis.R
-Then do a simple linear model at first. arcsin sqrt transform the frequencies and do a likelihood ratio test for:
-~ intercept
-~ Treatment
- Write out chromosome, position, pval
+Prelim_analysis.R Then do a simple linear model at first. arcsin sqrt transform the frequencies and do a likelihood ratio test for: \~ intercept \~ Treatment Write out chromosome, position, pval
 
-
-#### 2024_12_18 SRI: 
+#### 2024_12_18 SRI:
 
 Set up project notes file and organized folder as discussed between EGK, KMM and SRI. Project organization is as follows:
 

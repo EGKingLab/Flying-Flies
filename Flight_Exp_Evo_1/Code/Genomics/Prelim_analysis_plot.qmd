@@ -14,7 +14,6 @@ rr <- readRDS("../../../Big_data/Prelim_Scan.RDS")
 
 ```
 
-
 ## Make genome scan plot
 
 ```{r}
@@ -26,14 +25,25 @@ pp <- rr |>
   filter(CHROM %in% c("2L","2R","3L","3R","X")) |>
   filter(logPadj < 25)
 
+max_vals_chrom <- aggregate(POS ~ CHROM, data = pp, FUN = max)
+min_vals_chrom <- aggregate(POS ~ CHROM, data = pp, FUN = min)
 
 scanplot <- pp |>
-  ggplot(aes(POS,logPadj)) +
-  geom_point(alpha = 1/8, size = 0.25) +
-  facet_grid(cols = vars(CHROM))
+  ggplot(aes(x = POS,y = logPadj, size = logPadj)) +
+  geom_point(alpha = 4/8) +
+  facet_grid(cols = vars(CHROM)) +
+  xlab("Position")+
+  ylab("-log10(P-Value Adjusted)") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.position = "none") +
+  scale_size(range = c(0.5, 2)) +
+  geom_hline(aes(yintercept = -log10(0.05)), color = 'red4', linetype = 'dotted', alpha = 6/8) +
+   geom_hline(aes(yintercept = -log10(0.01)), color = 'red3', linetype = 'dotted', alpha = 5/8) +
+   geom_hline(aes(yintercept = -log10(0.001)), color = 'red',
+              linetype = 'dotted', alpha = 4/8)
 
 
-ggsave(scanplot, filename = "../../Plots/Prelim_scan.jpeg", dpi = 400, width = 12, height = 6)
+ggsave(scanplot, filename = "../../Plots/Prelim_scan_Evol2025_Poster_SV.jpeg", dpi = 400, width = 12, height = 6)
 
 ```
-
