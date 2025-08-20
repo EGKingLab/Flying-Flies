@@ -3,3 +3,21 @@ title: "Clean_and_Filter_data"
 format: html
 ---
 
+## Load packages
+
+```{r}
+library(tidyverse)
+```
+
+## Read and load data
+
+```{r}
+FF_genome_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header = T)
+
+```
+
+## Filter by allele frequency
+
+```{r}
+
+```
