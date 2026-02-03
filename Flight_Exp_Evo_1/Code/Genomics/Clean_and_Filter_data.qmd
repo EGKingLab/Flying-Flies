@@ -14,6 +14,8 @@ library(tidyverse)
 ```{r}
 FF_genome_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header = T)
 
+# Note: frequency here refers to Reference allele frequency. If freq is low, then alternate allele frequency is high. 
+
 ```
 
 ## Plot Coverage Depth
@@ -22,4 +24,24 @@ FF_genome_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header
 Coverage <- FF_genome_raw %>% select(contains("N_")) %>% pivot_longer(cols = everything(), names_to = "Sample", values_to = "Coverage") %>% mutate(Log_Coverage = log10(Coverage))
 
 ggplot(data = Coverage) + geom_boxplot(aes(Sample, Log_Coverage))
+
+Mean_Coverage <- Coverage %>% group_by(Sample) %>% summarise(m_log_cover = mean(Log_Coverage))
+```
+
+### Filter Trials
+
+#### Coverage Filter
+
+```{r}
+filt_cover <- Coverage %>% filter(Coverage >= 30)
+
+ggplot(data = filt_cover) + geom_boxplot(aes(Sample, Log_Coverage))
+```
+
+#### Frequency filter
+
+```{r}
+allele_freq <- FF_genome_raw %>% select(CHROM, POS, contains("freq_")) %>% pivot_longer(cols = starts_with('freq_'), names_to = "population", values_to = "alle_freq") %>% mutate(Chromosome = as.factor(CHROM))
+
+# ggplot(data = allele_freq) + geom_boxplot(aes(population, alle_freq))
 ```
