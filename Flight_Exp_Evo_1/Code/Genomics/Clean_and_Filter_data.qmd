@@ -18,6 +18,27 @@ FF_genome_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header
 
 ```
 
+## Set up allele frequency data and factors, filter allele frequency
+
+```{r}
+FF_frequency_raw <- FF_genome_raw %>% select(CHROM, POS, contains("freq_")) %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "4", "X", "Y")) %>% pivot_longer(cols = starts_with('freq_'), names_to = "population", values_to = "alle_freq") %>% mutate(Chromosome = factor(CHROM))
+
+freq_factors <- FF_frequency_raw %>% separate_wider_delim(
+  cols = population, 
+  delim = "_",
+  names = c(NA, "Population", "Generation", "Sample"))
+
+freq_factors <- freq_factors %>% mutate(Population = factor(Population), Sample = factor(Sample)) %>% separate_wider_regex(
+  cols = Population, 
+  patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")) %>% mutate(Selection = factor(Selection), PopReplicate = factor(PopReplicate))
+
+allele_frequency_data <- freq_factors %>% select(Selection, PopReplicate, Chromosome, POS, alle_freq)
+
+# filter out <2% alt. allele frequency (i.e., ref freq. >98%)
+
+allele_frequency_data <- allele_frequency_data %>% filter(alle_freq < 0.98)
+```
+
 ## Plot Coverage Depth
 
 ```{r}
@@ -69,7 +90,7 @@ pop_split <- pop_split %>% mutate(Population = factor(Population), Sample = fact
 #### Allele Frequency Data
 
 ```{r}
-allele_frequency_data <- pop_split %>% select(Selection, PopReplicate, Chromosome, POS, alle_freq)
+allele_frequency_data <- pop_split %>% select(Selection, PopReplicate, Chromosome, POS, alle_freq) %>% filter(alle_freq < 0.98)
 
 ggplot(data = allele_frequency_data, aes(x = Selection, y = alle_freq, color = PopReplicate)) + geom_boxplot()
 ```
