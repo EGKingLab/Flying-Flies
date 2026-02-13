@@ -42,9 +42,22 @@ allele_frequency_data <- allele_frequency_data %>% filter(alle_freq < 0.98)
 ## Set up coverage data and factors, filter allele frequency
 
 ```{r}
-FF_coverage_raw <- FF_genome_raw %>% select(CHROM, POS, contains("N_")) %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "4", "X", "Y")) %>% pivot_longer(cols = starts_with('N_'), names_to = "population", values_to = "cov_freq") %>% mutate(Chromosome = factor(CHROM))
+FF_coverage_raw <- FF_genome_raw %>% select(CHROM, POS, contains("N_")) %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "4", "X", "Y")) %>% pivot_longer(cols = starts_with('N_'), names_to = "population", values_to = "coverage") %>% mutate(Chromosome = factor(CHROM))
 
+coverage_factors <- FF_coverage_raw %>% separate_wider_delim(
+  cols = population, 
+  delim = "_",
+  names = c(NA, "Population", "Generation", "Sample"))
 
+coverage_factors <- coverage_factors %>% mutate(Population = factor(Population), Sample = factor(Sample)) %>% separate_wider_regex(
+  cols = Population, 
+  patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")) %>% mutate(Selection = factor(Selection), PopReplicate = factor(PopReplicate))
+
+coverage_data <- coverage_factors %>% select(Selection, PopReplicate, Chromosome, POS, coverage)
+
+# filter out <2% alt. allele frequency (i.e., ref freq. >98%)
+
+coverage_data <- coverage_data %>% filter(coverage > 30)
 ```
 
 ## Plot Coverage Depth
