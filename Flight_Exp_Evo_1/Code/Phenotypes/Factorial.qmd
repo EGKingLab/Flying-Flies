@@ -128,6 +128,13 @@ global_model_Dist <- lmer(data = Mean_dist, REML = FALSE,
 AIC_results <- dredge(global_model_Dist)
 
 view(as.data.frame(AIC_results))
+
+# model with the highest AIC weight
+selected_model <- lmer(data = Mean_dist, REML = TRUE,
+  meandist ~ Selection + Light_Status + Fan_Status + (1|PopRep))
+
+eta_squared(selected_model)
+cohens_f(selected_model)
 ```
 
 Based on AICc scores, 'fit_mean_1' is selected. This considers only Selection.
