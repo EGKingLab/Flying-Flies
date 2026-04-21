@@ -17,6 +17,7 @@ library(cowplot)
 library(AICcmodavg)
 library(lmerTest)
 library(effectsize)
+library(MuMIn)
 
 theme_set(theme_cowplot())
 ```
@@ -26,7 +27,7 @@ theme_set(theme_cowplot())
 Imported into a tibble "Mass_data_raw" and processed into "Mass_data"
 
 ```{r}
-Mass_data_raw <- read_excel("DryMassData.xlsx", na = "NA")
+Mass_data_raw <- read_excel("~/Flying_Flies_Phenotyping/Raw_data/DryMassData.xlsx", na = "NA")
 
 # Get dry mass per fly
 Mass_data_raw <- Mass_data_raw %>% 
@@ -35,13 +36,35 @@ Mass_data_raw <- Mass_data_raw %>%
 
 Mass_data <- Mass_data_raw %>% group_by(Selection, PopReplicate, Vial, Sex, VialSample) %>% 
   summarise(DryMass = mean(DryMassTechnical)) %>% 
-  mutate(PopRepNest = paste(Selection, PopReplicate, sep = "_")) %>% 
-  mutate(VialNest = paste(PopRepNest, Vial, sep = "_V")) %>% 
-  mutate_at(c("Selection", "PopReplicate", "PopRepNest", "Sex", "VialNest"), factor)
+  mutate(PopRep = paste(Selection, PopReplicate, sep = "_")) %>% 
+  mutate(VialNest = paste(PopRep, Vial, sep = "_V")) %>% 
+  mutate_at(c("Selection", "PopReplicate", "PopRep", "Sex", "VialNest"), factor)
   
 ```
 
 ### Analysis
+
+AIC table using dredge function
+
+```{r}
+options(na.action = "na.fail") # required for dredge function
+
+global_model_Mass <- lmer(data = Mass_data, REML = FALSE,
+  DryMass ~ Selection * Sex + (1|PopRep))
+
+AIC_res_Mass <- dredge(global_model_Mass)
+
+# view(as.data.frame(AIC_res_Mass))
+
+selected_model_Mass <- lmer(data = Mass_data, REML = TRUE,
+  DryMass ~ Selection * Sex + (1|PopRep))
+
+eta_squared(selected_model_Mass)
+```
+
+#### Old Analysis
+
+Unused as of 21 April 2026
 
 ```{r}
 fit_mass_1 <- lmer(DryMass ~ Selection + (1|PopRepNest) + Sex + (1|PopRepNest:Sex) + Selection:Sex, 
@@ -54,6 +77,7 @@ fit_mass_3 <- lmer(DryMass ~ Selection + (1|PopRepNest),
                    data = Mass_data, REML = T)
 
 anova(fit_mass_1)
+
 ```
 
 ```{r}
@@ -67,11 +91,7 @@ fit_mass_3_ML <- lmer(DryMass ~ Selection + (1|PopRepNest),
                    data = Mass_data, REML = F)
 
 aictab(cand.set = list(fit_mass_1_ML, fit_mass_2_ML, fit_mass_3_ML))
-```
 
-### Calculating effect size
-
-```{r}
 cohens_f(fit_mass_1)
 ```
 
