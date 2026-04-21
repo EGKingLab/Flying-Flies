@@ -19,6 +19,7 @@ library(cowplot)
 library(AICcmodavg)
 library(lmerTest)
 library(effectsize)
+library(MuMIn)
 
 theme_set(theme_cowplot())
 ```
@@ -83,8 +84,13 @@ Mean_dist <- Mean_dist %>%
   mutate(PopRep = paste(Selection, PopReplicate, sep = "_")) %>% 
   mutate(RunSetNest = paste(PopRep, RunSet, sep = "_")) %>% 
   mutate_at(c("PopRep", "RunSetNest"), factor)
-  
-  
+```
+
+#### Old AICtab code
+
+Unused as of 21 April 2026
+
+```{r}
 fit_mean_1 <- lmer(meandist ~ Selection + (1|PopRep), 
                    data = Mean_dist, REML = FALSE)
 fit_mean_2 <- lmer(meandist ~ Selection + Light_Status + (1|PopRep) + (1|PopRep:Light_Status), 
@@ -103,9 +109,25 @@ fit_mean_7 <- lmer(
   meandist ~ Selection + (1|Selection/PopRep),
   data = Mean_dist, REML = FALSE)
 
+fit_mean_8 <- lmer(meandist ~ Selection + Light_Status + Fan_Status + (1|PopRep), 
+                   data = Mean_dist, REML = FALSE)
 
-aictab(cand.set = list(fit_mean_1, fit_mean_2, fit_mean_3, fit_mean_4, fit_mean_5, fit_mean_6, fit_mean_7))
 
+aictab(cand.set = list(fit_mean_1, fit_mean_2, fit_mean_3, fit_mean_4, fit_mean_5, fit_mean_6, fit_mean_7, fit_mean_8))
+
+```
+
+## Check AIC scores of models using dredge function
+
+```{r}
+options(na.action = "na.fail") # required for dredge function
+
+global_model_Dist <- lmer(data = Mean_dist, REML = FALSE,
+  meandist ~ Selection * Light_Status * Fan_Status + (1|PopRep))
+
+AIC_results <- dredge(global_model_Dist)
+
+view(as.data.frame(AIC_results))
 ```
 
 Based on AICc scores, 'fit_mean_1' is selected. This considers only Selection.
