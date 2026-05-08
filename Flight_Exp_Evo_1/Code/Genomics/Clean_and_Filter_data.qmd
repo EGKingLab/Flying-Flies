@@ -15,7 +15,8 @@ library(tidyverse)
 FF_genome_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header = T)
 
 # Note: frequency here refers to Reference allele frequency. If freq is low, then alternate allele frequency is high. 
-
+# This is based on the PERL code where:
+# my $RefFreq = $A/$TotalCount
 ```
 
 ## Set up allele frequency data and factors, filter allele frequency
@@ -81,4 +82,16 @@ coverage_data <- coverage_data %>%  mutate(log_coverage = log10(coverage))
 
 ```{r}
 ggplot(data = coverage_data, aes(x = Selection, y = log_coverage, color = PopReplicate)) + geom_boxplot()
+```
+
+### Plots of allele frequency across chromosomal arms
+
+#### Arm 2L
+
+```{r}
+
+# Plot_2L <- allele_frequency_data %>% filter(Chromosome == "2L") %>% ggplot(aes(x = POS, y = alle_freq, color = Selection)) + geom_point()
+# 
+# Plot_2L
+
 ```
