@@ -41,7 +41,7 @@ allele_frequency_data <- freq_factors %>% select(Selection, PopReplicate, Chromo
 
 # filter out <2% alt. allele frequency (i.e., ref freq. >98%)
 
-allele_frequency_data <- allele_frequency_data %>% filter(alle_freq < 0.98)
+allele_frequency_data <- allele_frequency_data %>% filter(alle_freq < 0.98 & alle_freq > 0.02)
 ```
 
 ## Plot allele frequency data
