@@ -12,7 +12,7 @@ library(tidyverse)
 ## Read and load data
 
 ```{r}
-FF_genome_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header = T)
+FF_genomes_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header = T)
 
 # Note: frequency here refers to Reference allele frequency. If freq is low, then alternate allele frequency is high. 
 # This is based on the PERL code where:
@@ -22,6 +22,22 @@ FF_genome_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header
 # N refers to total coverage:
 # (line 62) $temp = $temp."\t".sprintf("%.2f",$RefFreq)."\t$TotalCount";
 ```
+
+## Wrangle data to create factors
+
+```{r}
+FF_genomes_wrangled <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "4", "X", "Y")) %>% mutate_at("CHROM", as.factor)
+```
+
+### Create filters for allele frequency and read depth
+
+Allele frequency: #REF suggests a filter of \>3 alleles. This is calculated and filtered.
+
+Read depth: Ferretti et al 2013 suggest that a read depth of 20-30 is a good minimum, and statistical power does not increase beyond a read depth of 40-50. Burke et al. used an upper cutoff of 150.
+
+As of 2026-05-15, read depth filters of min. 20× and max. 150× will be applied.
+
+## Setting all code chunks below as practice!
 
 ## Set up allele frequency data and factors, filter allele frequency
 
