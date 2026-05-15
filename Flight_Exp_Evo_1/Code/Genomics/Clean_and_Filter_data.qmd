@@ -16,7 +16,11 @@ FF_genome_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', header
 
 # Note: frequency here refers to Reference allele frequency. If freq is low, then alternate allele frequency is high. 
 # This is based on the PERL code where:
-# my $RefFreq = $A/$TotalCount
+# (line 56) my $TotalCount = $A + $B;
+# (line 61) my $RefFreq = $A/$TotalCount
+
+# N refers to total coverage:
+# (line 62) $temp = $temp."\t".sprintf("%.2f",$RefFreq)."\t$TotalCount";
 ```
 
 ## Set up allele frequency data and factors, filter allele frequency
