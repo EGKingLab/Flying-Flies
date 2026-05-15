@@ -33,6 +33,8 @@ FF_genomes_wrangled <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", 
 
 Allele frequency: #REF suggests a filter of \>3 alleles. This is calculated and filtered.
 
+Ferretti et al 2013 suggest removing all singleton reads.
+
 Read depth: Ferretti et al 2013 suggest that a read depth of 20-30 is a good minimum, and statistical power does not increase beyond a read depth of 40-50. Burke et al. used an upper cutoff of 150.
 
 As of 2026-05-15, read depth filters of min. 20× and max. 150× will be applied.
