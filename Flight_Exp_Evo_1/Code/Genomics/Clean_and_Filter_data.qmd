@@ -59,6 +59,45 @@ FF_genomes_filtered <- FF_genomes_unfiltered %>% filter(
 post_filter_length <- length(FF_genomes_filtered$POS)
 
 filtered_out <- pre_filter_length - post_filter_length
+
+# ENSURE THAT Nmiss HAS NO VALUE >0!
+```
+
+#### Save filtered data
+
+```{r}
+# saveRDS(FF_genomes_filtered, 
+#         file = "../../../Big_data/FF_genomes_filtered.RDS")
+```
+
+## Preliminary Analyses
+
+This will be transferred to a new file once data filtering is finalized and saved as a separate file.
+
+### CMH Test
+
+mantelhaen.test
+
+```{r}
+# Transform allele frequency data into the following:
+# [Control_allele_A, Selected_allele_A, Control_allele_B, Selected allele_B]
+```
+
+cmh.test
+
+```{r}
+FF_counts <- FF_genomes_filtered %>% 
+  select(-Nmiss, -mean_freq, -min_depth, -max_depth) %>% 
+  pivot_longer(
+  cols = c(starts_with('freq_'), starts_with('N_')),
+  names_to = c(".value", "Population"),
+  names_pattern = "(freq|N)_(.*)"
+  )
+
+FF_counts <- FF_counts %>% mutate(
+  Population = str_remove(Population, "_.*")
+) 
+#next time: comment code and separate Population into Selection and PopReplicate
 ```
 
 ## Setting all code chunks below as practice! {style="color: red;"}
