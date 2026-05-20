@@ -23,11 +23,7 @@ FF_genomes_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', heade
 # (line 62) $temp = $temp."\t".sprintf("%.2f",$RefFreq)."\t$TotalCount";
 ```
 
-## Wrangle data to create factors
-
-```{r}
-FF_genomes_wrangled <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "4", "X", "Y")) %>% mutate_at("CHROM", as.factor)
-```
+## Data cleanup and apply filters
 
 ### Create filters for allele frequency and read depth
 
@@ -38,6 +34,32 @@ Ferretti et al 2013 suggest removing all singleton reads.
 Read depth: Ferretti et al 2013 suggest that a read depth of 20-30 is a good minimum, and statistical power does not increase beyond a read depth of 40-50. Burke et al. used an upper cutoff of 150.
 
 As of 2026-05-15, read depth filters of min. 20× and max. 150× will be applied.
+
+Gamboa-Santarosa et al 2026 bioRxiv have filtered read depth between 50-500. For allele frequency, they have filtered a combined allele frequency of 1% on both ends.
+
+2026-05-20: Read depth filters of min. 20x and max. 500x. Allele frequency (averaged over all samples) of \<0.01 and \>0.99 are filtered.
+
+```{r}
+# filter chromosomes to remove all garbled chromosome names. Set CHROM as factor for easier plotting later.
+FF_genomes_unfiltered <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "4", "X", "Y")) %>% mutate_at("CHROM", as.factor)
+
+# make average frequency colum, min. and max. read depth columns
+FF_genomes_unfiltered <- FF_genomes_unfiltered %>% mutate(
+  mean_freq = rowMeans(pick(starts_with("freq_")), na.rm = TRUE), 
+  min_depth = do.call(pmin, c(pick(starts_with("N_")), na.rm = TRUE)),
+  max_depth = do.call(pmax, c(pick(starts_with("N_")), na.rm = TRUE))
+  )
+
+pre_filter_length <- length(FF_genomes_unfiltered$POS)
+
+# filter allele frequency and read depth (see text above for threshold)
+FF_genomes_filtered <- FF_genomes_unfiltered %>% filter(
+  (mean_freq > 0.01 & mean_freq < 0.99), min_depth > 20, max_depth < 500)
+
+post_filter_length <- length(FF_genomes_filtered$POS)
+
+filtered_out <- pre_filter_length - post_filter_length
+```
 
 ## Setting all code chunks below as practice! {style="color: red;"}
 
