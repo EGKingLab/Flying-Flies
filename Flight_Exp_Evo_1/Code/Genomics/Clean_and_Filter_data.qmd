@@ -113,23 +113,67 @@ FF_counts <- FF_counts %>% mutate(NRef = round(freq * N)) %>% mutate(NAlt = N - 
 #### Test out manual CMH test
 
 ```{r}
-testn1 <- FF_counts %>% 
-  select(POS, Selection, PopReplicate, NRef, NAlt) %>% 
+# Testing a smaller subset of data for CMH test. Make locus id by uniting chromosomal and positional ids. slice the first 3 replicates for each combination of Selection and PopReplicate.
+
+testn1 <- FF_counts %>% unite(col = "locus_id", CHROM, POS, sep = "_", remove = FALSE) %>% 
+  select(locus_id, Selection, PopReplicate, NRef, NAlt) %>% 
   group_by(Selection, PopReplicate) %>% slice_head(n = 3) %>%
   ungroup()
 
+# set population replicate IDs
 popreplicates <- c("1", "2", "3", "4")
 
+# make wide format data such that each locus is a row, and all measured data are in respective columns (same as the raw genome data)
 widetestn1 <- testn1 %>% pivot_wider(
-  id_cols = POS,
+  id_cols = locus_id,
   names_from = c(Selection, PopReplicate),
   values_from = c(NRef, NAlt)
 )
 
+# extract matrices out for each Selection levels' ref and alternate datasets within the genomic data.
 Atest <- as.matrix(widetestn1[, paste0("NRef_CON_", popreplicates)])
+rownames(Atest) <- widetestn1$locus_id
+
 atest <- as.matrix(widetestn1[, paste0("NAlt_CON_", popreplicates)])
+rownames(atest) <- widetestn1$locus_id
+
 Btest <- as.matrix(widetestn1[, paste0("NRef_FP_", popreplicates)])
+rownames(Btest) <- widetestn1$locus_id
+
 btest <- as.matrix(widetestn1[, paste0("NAlt_FP_", popreplicates)])
+rownames(btest) <- widetestn1$locus_id
+
+# this is the potential manual calculation
+N1 <- Atest + atest
+N2 <- Btest + btest
+M1 <- Atest + Btest
+M2 <- atest + btest
+T_total <- N1 + N2
+
+E_matrix <- (N1 * M1)/T_total
+V_matrix <- (N1 * N2 * M1 * M2)/(T_total^2 * (T_total - 1))
+
+O_sum <- rowSums(Atest, na.rm = TRUE)
+E_sum <- rowSums(E_matrix, na.rm = TRUE)
+V_sum <- rowSums(V_matrix, na.rm = TRUE)
+
+chi2_vector <-  (abs(O_sum - E_sum) - 0.5)^2/V_sum
+
+p_values <- pchisq(chi2_vector, df = 1, lower.tail = FALSE)
+
+# testing out mantelhaen.test on limited sample size
+pvaltemp <- c(1:3)
+
+for (i in 1:3){
+  temparray <- array(
+    data = rbind(Atest[i,], atest[i,], Btest[i,], btest[i,]), 
+    dim = c(2, 2, 4))
+  temp_mantel_test <- mantelhaen.test(temparray)
+  pvaltemp[i] = temp_mantel_test$p.value
+}
+
+# matching p values from both methods
+pvalmatch <- p_values == pvaltemp
 ```
 
 ## Setting all code chunks below as practice! {style="color: red;"}
