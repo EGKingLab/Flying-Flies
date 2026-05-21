@@ -115,9 +115,11 @@ FF_counts <- FF_counts %>% mutate(NRef = round(freq * N)) %>% mutate(NAlt = N - 
 ```{r}
 # Testing a smaller subset of data for CMH test. Make locus id by uniting chromosomal and positional ids. slice the first 3 replicates for each combination of Selection and PopReplicate.
 
+slice_length = 10
+
 testn1 <- FF_counts %>% unite(col = "locus_id", CHROM, POS, sep = "_", remove = FALSE) %>% 
   select(locus_id, Selection, PopReplicate, NRef, NAlt) %>% 
-  group_by(Selection, PopReplicate) %>% slice_head(n = 3) %>%
+  group_by(Selection, PopReplicate) %>% slice_head(n = slice_length) %>%
   ungroup()
 
 # set population replicate IDs
@@ -162,9 +164,9 @@ chi2_vector <-  (abs(O_sum - E_sum) - 0.5)^2/V_sum
 p_values <- pchisq(chi2_vector, df = 1, lower.tail = FALSE)
 
 # testing out mantelhaen.test on limited sample size
-pvaltemp <- c(1:3)
+pvaltemp <- c(1:slice_length)
 
-for (i in 1:3){
+for (i in 1:slice_length){
   temparray <- array(
     data = rbind(Atest[i,], atest[i,], Btest[i,], btest[i,]), 
     dim = c(2, 2, 4))
@@ -172,8 +174,8 @@ for (i in 1:3){
   pvaltemp[i] = temp_mantel_test$p.value
 }
 
-# matching p values from both methods
-pvalmatch <- p_values == pvaltemp
+# matching p values from both methods. using absolute values to avoid negative numbers in log10
+pvalmatch <- log10(abs(as.vector(p_values) - pvaltemp))
 ```
 
 ## Setting all code chunks below as practice! {style="color: red;"}
