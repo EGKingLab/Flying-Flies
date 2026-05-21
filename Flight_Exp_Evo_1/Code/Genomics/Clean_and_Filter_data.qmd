@@ -86,6 +86,7 @@ mantelhaen.test
 cmh.test
 
 ```{r}
+# Pivot longer so that counts can be calculated for cmh.test
 FF_counts <- FF_genomes_filtered %>% 
   select(-Nmiss, -mean_freq, -min_depth, -max_depth) %>% 
   pivot_longer(
@@ -94,10 +95,35 @@ FF_counts <- FF_genomes_filtered %>%
   names_pattern = "(freq|N)_(.*)"
   )
 
+# Separate the column Population into Selection and Population Replicate as factors
 FF_counts <- FF_counts %>% mutate(
-  Population = str_remove(Population, "_.*")
-) 
-#next time: comment code and separate Population into Selection and PopReplicate
+  Population = str_remove(Population, "_.*")) %>%
+  separate_wider_regex(
+    cols = Population,
+    patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")
+    ) %>% 
+  mutate_at(c("Selection", "PopReplicate"), factor)
+
+# Back calculate Reference and Alternate allele counts from frequency and read depth
+FF_counts <- FF_counts %>% mutate(NRef = round(freq * N)) %>% mutate(NAlt = N - NRef)
+
+testn1 <- FF_counts %>% 
+  select(POS, Selection, PopReplicate, NRef, NAlt) %>% 
+  group_by(Selection, PopReplicate) %>% slice_head(n = 3) %>%
+  ungroup()
+
+popreplicates <- c("1", "2", "3", "4")
+
+widetestn1 <- testn1 %>% pivot_wider(
+  id_cols = POS,
+  names_from = c(Selection, PopReplicate),
+  values_from = c(NRef, NAlt)
+)
+
+Atest <- as.matrix(widetestn1[, paste0("NRef_CON_", popreplicates)])
+atest <- as.matrix(widetestn1[, paste0("NAlt_CON_", popreplicates)])
+Btest <- as.matrix(widetestn1[, paste0("NRef_FP_", popreplicates)])
+btest <- as.matrix(widetestn1[, paste0("NAlt_FP_", popreplicates)])
 ```
 
 ## Setting all code chunks below as practice! {style="color: red;"}
