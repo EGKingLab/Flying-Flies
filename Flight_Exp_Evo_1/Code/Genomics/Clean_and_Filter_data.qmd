@@ -107,6 +107,12 @@ FF_counts <- FF_counts %>% mutate(
 # Back calculate Reference and Alternate allele counts from frequency and read depth
 FF_counts <- FF_counts %>% mutate(NRef = round(freq * N)) %>% mutate(NAlt = N - NRef)
 
+
+```
+
+#### Test out manual CMH test
+
+```{r}
 testn1 <- FF_counts %>% 
   select(POS, Selection, PopReplicate, NRef, NAlt) %>% 
   group_by(Selection, PopReplicate) %>% slice_head(n = 3) %>%
