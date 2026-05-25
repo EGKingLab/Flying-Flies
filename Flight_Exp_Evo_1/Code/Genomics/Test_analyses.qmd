@@ -56,7 +56,7 @@ rownames(data_pca) <- data_pca_wide$Population
 #### Running prcomp for PCA
 
 ```{r}
-pca_result_raw <- prcomp(data_pca)
+pca_result_raw <- prcomp(data_pca, center = TRUE, scale. = TRUE)
 ```
 
 #### Extract PCA coordinates and find clustering patterns
