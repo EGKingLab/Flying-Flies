@@ -16,7 +16,7 @@ Also sets the cowplot theme
 library(tidyverse)
 library(cowplot)
 
-set_theme(cowplot)
+theme_set(theme_cowplot())
 
 FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
 
@@ -25,6 +25,111 @@ FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
 ## Preliminary Analyses
 
 This will be transferred to a new file once data filtering is finalized and saved as a separate file.
+
+### PCA
+
+#### Data Prep for PCA
+
+```{r}
+data_pca_long <- FF_genomes_filtered %>% 
+  mutate(SNP_ID = paste(CHROM, POS, sep = "_")) %>% 
+  select(-Nmiss, -mean_freq, -min_depth, -max_depth) %>% 
+  pivot_longer(
+  cols = c(starts_with('freq_'), starts_with('N_')),
+  names_to = c(".value", "Population"),
+  names_pattern = "(freq|N)_(.*)"
+  )
+
+data_pca_wide <- data_pca_long %>% 
+  select(SNP_ID, Population, freq) %>% 
+  pivot_wider(names_from = SNP_ID, values_from = freq)
+
+metadata <- data_pca_wide %>% select(Population)
+
+data_pca <- data_pca_wide %>% 
+  select(-Population) %>% 
+  as.matrix()
+
+rownames(data_pca) <- data_pca_wide$Population
+```
+
+#### Running prcomp for PCA
+
+```{r}
+pca_result_raw <- prcomp(data_pca)
+```
+
+#### Extract PCA coordinates and find clustering patterns
+
+```{r}
+# create dataframe of PC1, PC2, PC3
+pca_result <- data.frame(
+  X = pca_result_raw$x[, 1], 
+  Y = pca_result_raw$x[, 2],
+  Z = pca_result_raw$x[, 3]
+) # PC1, PC2, PC3
+
+
+# find variance explained by each PC
+var_expl <- pca_result_raw$sdev^2
+var_expl_percent <- round((var_expl/sum(var_expl)) * 100, 2)
+
+# add rownames (populations)
+pca_result <- cbind(metadata, pca_result)
+
+# separate Selection and PopReplicate as factors
+pca_result <- pca_result %>% mutate(
+  Population = str_remove(Population, "_.*")) %>%
+  separate_wider_regex(
+    cols = Population,
+    patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")
+    ) %>% 
+  mutate_at(c("Selection", "PopReplicate"), factor)
+
+# K-means clustering on frequency data
+# looking for 2 distinct groups
+clustering_result <- kmeans(data_pca, centers = 2, nstart = 25)
+
+pca_result$Cluster <- as.factor(clustering_result$cluster)
+
+
+```
+
+#### Make Biplot
+
+With K-means clustering (gives warning due to only 2 samples in second cluster)
+
+```{r}
+pca_biplot_kmeans <- ggplot(data = pca_result, 
+  aes(x = X, y = Y)) +
+  geom_point(aes(color = Selection, shape = PopReplicate), size = 3, alpha = 0.75) +
+  xlab(paste0("PC1 (", var_expl_percent[1], "%)")) +
+  ylab(paste0("PC2 (", var_expl_percent[2], "%)")) +
+  
+  stat_ellipse(aes(group = Cluster), level = 0.95, linetype = 2, color = "black")
+  
+print(pca_biplot_kmeans)
+```
+
+Without ellipse
+
+```{r}
+pca_biplot_Sel <- ggplot(data = pca_result, 
+  aes(x = X, y = Y)) +
+  geom_point(aes(color = Selection, shape = PopReplicate), size = 3, alpha = 0.75) +
+  xlab(paste0("PC1 (", var_expl_percent[1], "%)")) +
+  ylab(paste0("PC2 (", var_expl_percent[2], "%)"))
+  
+  # stat_ellipse(aes(group = Selection, color = Selection), level = 0.95, linetype = 2)
+  
+print(pca_biplot_Sel)
+```
+
+#### Scree Plot
+
+```{r}
+barplot(var_expl_percent)
+```
 
 ### CMH Test
 
