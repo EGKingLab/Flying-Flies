@@ -15,6 +15,7 @@ Also sets the cowplot theme
 ```{r}
 library(tidyverse)
 library(cowplot)
+library(pcadapt)
 
 theme_set(theme_cowplot())
 
@@ -137,6 +138,21 @@ Save test plots
 ggsave(pca_biplot_kmeans, filename = "../../Plots/testPCA_kmeans.jpeg", dpi = 400, width = 12, height = 6)
 
 ggsave(pca_biplot_Sel, filename = "../../Plots/testPCA_Sel.jpeg", dpi = 400, width = 12, height = 6)
+```
+
+### PCADAPT Package for PCA
+
+Verified to be the same as prcomp (unscaled and non-centered).
+
+```{r}
+data_pca <- as.matrix(data_pca)
+
+pcadapt_input <- read.pcadapt(data_pca, type = "pool")
+pcadapt_output <- pcadapt(pcadapt_input)
+
+pc1 <- pcadapt_output$scores[,1]
+pc2 <- pcadapt_output$scores[,2]
+ggplot()+geom_point(aes(x = pc1, y=pc2))
 ```
 
 ### CMH Test
