@@ -155,6 +155,17 @@ pc2 <- pcadapt_output$scores[,2]
 ggplot()+geom_point(aes(x = pc1, y=pc2))
 ```
 
+### Linear Model
+
+```{r}
+FF_matrix <- FF_genomes_filtered[, seq(6,20, by=2)]
+
+FF_matrix <- as.matrix(FF_matrix)
+FF_matrix <- asin(sqrt(FF_matrix))
+
+linear_output
+```
+
 ### CMH Test
 
 mantelhaen.test
