@@ -163,7 +163,29 @@ FF_matrix <- FF_genomes_filtered[, seq(6,20, by=2)]
 FF_matrix <- as.matrix(FF_matrix)
 FF_matrix <- asin(sqrt(FF_matrix))
 
-linear_output
+linear_output <- numeric(length = nrow(FF_matrix))
+perc_tracker <- round(nrow(FF_matrix) * 0.05)
+
+for(ii in 1:nrow(FF_matrix)){
+  FF_temp <- data.frame(
+    "Treatment" = rep(c("CON","FP"), each = 4), 
+    "Frequency" = FF_matrix[ii,])
+  
+  mod_FF_temp <- lm(data = FF_temp, Frequency ~ Treatment)
+  mod_FF_temp <- anova(mod_FF_temp)
+  linear_output[ii] <- mod_FF_temp$`Pr(>F)`[1]
+  
+  if (ii %% perc_tracker == 0){
+    current_per <- (ii/nrow(FF_matrix) * 100)
+    cat("Progress: ", current_per, "%\n")
+  }
+}
+
+FF_lm_res <- FF_genomes_filtered[, c(2, 3)]
+
+FF_lm_res$Pval <- linear_output
+
+FF_lm_res$Pval_adj <- p.adjust(linear_output, method = "fdr")
 ```
 
 ### CMH Test
