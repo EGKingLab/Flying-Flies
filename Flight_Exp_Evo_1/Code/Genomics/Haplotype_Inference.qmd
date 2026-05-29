@@ -1,0 +1,43 @@
+---
+title: "Haplotype_Inference"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+
+```
+
+
+## Plan
+
+-   Merge SNP table with Founder SNP table - save as RDS
+-   Use haplotype inference using Maximum Likelihood method with a physical window size of 100,000 bp (lowest where error is flatish)
+-   Parallelize via chromosome arm and sample
+
+```{r}
+#| eval: false
+
+pool.snp <- readRDS(file = "/home/srikantv/Flying_Flies_Phenotyping/Big_data/FF_genomes_filtered.RDS")
+
+found.snp <- readRDS(file="/home/kingeg/Projects/MyGithub/HaplotypeEstimator/BigData/foundersnptable_convertedtoR6.rds")
+
+merge.snp.table <- inner_join(pool.snp, found.snp, by = join_by(CHROM, POS))
+
+#drop any alleles that dont match
+ww <- which(merge.snp.table$ALT.x != merge.snp.table$ALT.y)
+merge.snp.table <- merge.snp.table[-ww,]
+
+saveRDS(merge.snp.table, file= "../../../Big_data/SNPpool_wFounders.RDS")
+
+
+u_pool <- anti_join(pool.snp, found.snp, by = join_by(CHROM, POS))
+saveRDS(u_pool, file= "../../../Big_data/SNPs_in_FF_notin_Founders.RDS")
+
+f_pool <- anti_join(found.snp, pool.snp, by = join_by(CHROM, POS))
+saveRDS(u_pool, file= "../../../Big_data/SNPs_in_Founders_notin_FF.RDS")
+
+```
+
+
