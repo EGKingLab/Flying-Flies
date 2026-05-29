@@ -185,7 +185,30 @@ FF_lm_res <- FF_genomes_filtered[, c(2, 3)]
 
 FF_lm_res$Pval <- linear_output
 
-FF_lm_res$Pval_adj <- p.adjust(linear_output, method = "fdr")
+FF_chrfilt <- FF_lm_res %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "X")) %>% mutate(CHROM = fct_drop(CHROM))
+
+FF_chrfilt$Pval_adj <- p.adjust(FF_chrfilt$Pval, method = "fdr")
+```
+
+```{r}
+X_CHROM <- FF_chrfilt %>% group_by(CHROM) %>% summarise(center = (min(POS) + max(POS))/2)
+
+scanplot <- ggplot(data = FF_chrfilt, aes(
+x = POS, y = -log10(Pval_adj), size = -log10(Pval_adj))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(X_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(FDR adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+print(scanplot)
 ```
 
 ### CMH Test
