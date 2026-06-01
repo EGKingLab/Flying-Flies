@@ -1,0 +1,37 @@
+---
+title: "grenedalf_genediversity&Fst"
+format: html
+editor: visual
+---
+
+# Gene diversity and Fst enumeration through grenedalf
+
+## Load filtered pool-seq data and packages
+
+```{r}
+library(tidyverse)
+library(cowplot)
+
+theme_set(theme_cowplot())
+
+FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
+```
+
+## Process data for grenedalf
+
+```{r}
+FF_grene_process <- FF_genomes_filtered %>% 
+  select(-Nmiss, -REF, -ALT, -min_depth, -max_depth, -mean_freq) %>% rename_with(
+    # Removes all text after the second underscore,
+    # used to remove _G13_sample...
+    # this leaves freq_CON1, N_CON1, and so on.
+  ~str_replace(., "^([^_]+_[^_]+)_.*$", "\\1"),
+  # exlude CHROM and POS columns for this rule
+  .cols = !c(CHROM, POS)
+  )
+
+grouping_grene <- tibble(
+  sample = c(paste0("CON", 1:4), paste0("FP", 1:4)),
+  group = c(rep("CONTROL", 4), rep("SELECTED", 4))
+)
+```
