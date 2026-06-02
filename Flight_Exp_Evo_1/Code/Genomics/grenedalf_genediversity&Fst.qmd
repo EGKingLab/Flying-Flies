@@ -30,8 +30,19 @@ FF_grene_process <- FF_genomes_filtered %>%
   .cols = !c(CHROM, POS)
   )
 
-grouping_grene <- tibble(
-  sample = c(paste0("CON", 1:4), paste0("FP", 1:4)),
-  group = c(rep("CONTROL", 4), rep("SELECTED", 4))
-)
 ```
+
+### Write files to .csv for grenedalf input
+
+```{r}
+write_csv(FF_grene_process, "../../../Big_data/FF_grenedalf_input.csv")
+
+```
+
+## Run grenedalf code for gene diversity
+
+```{r}
+
+```
+
+Hudson's 1992 method of Fst estimation is applied alongside Nei's 1973 Fst estimation. The grenedalf authors cite Bhatia et al. 2013 (Genome Res.) to recommend Hudson's estimator.
