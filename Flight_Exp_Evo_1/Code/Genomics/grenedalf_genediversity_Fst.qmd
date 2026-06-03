@@ -1,5 +1,5 @@
 ---
-title: "grenedalf_genediversity&Fst"
+title: "grenedalf_genediversity_Fst"
 format: html
 editor: visual
 ---
@@ -43,6 +43,90 @@ write_csv(FF_grene_process, "../../../Big_data/FF_grenedalf_input.csv")
 
 ```{r}
 
+gdalf_out_path <- "../../../Big_data/grenedalf_diversity_out"
+
+unlink(gdalf_out_path, recursive = TRUE)
+
+dir.create(gdalf_out_path)
+
+grenedalf_diversity_args <- c(
+  "diversity",
+  "--frequency-table-path", "../../../Big_data/FF_grenedalf_input.csv",
+  
+  "--pool-sizes", "130",
+  "--window-type", "interval",
+  "--window-average-policy", "valid-loci",
+  "--filter-sample-min-count", "2",
+  "--filter-sample-min-read-depth", "4",
+  
+  "--window-interval-width", "100000",
+  "--window-interval-stride", "100000",
+  
+  "--out-dir", gdalf_out_path
+  )
+
+system2(
+  command = "/home/srikantv/miniforge3/bin/grenedalf",
+  args = grenedalf_diversity_args,
+        
+  stdout = "../../../Big_data/grenedalf_diversity_out/gdalf_div_log.txt",
+  stderr = "../../../Big_data/grenedalf_diversity_out/gdalf_div_errors.txt"
+  )
 ```
 
+### Load and wrangle gene diversity data
+
+```{r}
+gene_div_out <- read_csv("../../../Big_data/grenedalf_diversity_out/diversity.csv")
+
+FF_diversity <- gene_div_out %>% 
+  select(chrom, start, end, total.passed, 
+         matches("\\.(passed|theta_pi|theta_watterson|tajimas_d)"))
+```
+
+### Plot $\theta_\pi$ measure of gene diversity (analog of heterozygosity across windows)
+
+```{r}
+FF_thetapi <- FF_diversity %>% 
+  select(chrom, start, end,
+    contains("theta_pi")) %>% 
+  pivot_longer(cols = contains(".theta_pi"),
+               names_pattern = "(.*)\\.theta_pi",
+               names_to = "Population",
+               values_to = "theta_pi")
+
+FF_thetapi <- FF_thetapi %>% 
+  separate_wider_regex(cols = Population,
+  patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")) %>% 
+  mutate_at(c("Selection", "PopReplicate"), factor) %>% 
+  filter(chrom %in% c("2L", "2R", "3L", "3R", "X"))
+  
+
+thetapi_box <- ggplot(data = FF_thetapi, aes(x = Selection, y = theta_pi, color = PopReplicate)) +
+  geom_boxplot()
+
+thetapi_scan <- ggplot(data = FF_thetapi, aes(
+  x = start, y = theta_pi, color = Selection)) +
+  facet_grid(chrom ~ .) +
+  geom_point(alpha = 0.5)
+  
+print(thetapi_scan)
+```
+
+## Run grenedalf for population-pairwise Fst calculation
+
 Hudson's 1992 method of Fst estimation is applied alongside Nei's 1973 Fst estimation. The grenedalf authors cite Bhatia et al. 2013 (Genome Res.) to recommend Hudson's estimator.
+
+### Nei estimator
+
+```{r}
+gdalf_fst_nei_args <- ()
+  
+
+```
+
+### Hudson estimator
+
+```{r}
+gdalf_fst_hudson_args <- ()
+```
