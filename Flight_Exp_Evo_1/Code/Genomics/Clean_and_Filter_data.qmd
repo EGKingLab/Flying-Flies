@@ -54,9 +54,10 @@ FF_genomes_unfiltered <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L"
 
 # make average frequency colum, min. and max. read depth columns
 FF_genomes_unfiltered <- FF_genomes_unfiltered %>% mutate(
-  mean_freq = rowMeans(pick(starts_with("freq_")), na.rm = TRUE), 
   min_depth = do.call(pmin, c(pick(starts_with("N_")), na.rm = TRUE)),
-  max_depth = do.call(pmax, c(pick(starts_with("N_")), na.rm = TRUE))
+  max_depth = do.call(pmax, c(pick(starts_with("N_")), na.rm = TRUE)),
+  min_freq = do.call(pmin, c(pick(starts_with("freq_")), na.rm = TRUE)),
+  max_freq = do.call(pmax, c(pick(starts_with("freq_")), na.rm = TRUE)),
   )
 
 pre_filter_length <- length(FF_genomes_unfiltered$POS)
