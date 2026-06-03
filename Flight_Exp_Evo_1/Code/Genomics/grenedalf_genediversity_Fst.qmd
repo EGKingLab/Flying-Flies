@@ -117,15 +117,54 @@ print(thetapi_scan)
 
 Hudson's 1992 method of Fst estimation is applied alongside Nei's 1973 Fst estimation. The grenedalf authors cite Bhatia et al. 2013 (Genome Res.) to recommend Hudson's estimator.
 
-### Nei estimator
+### Fst Nei estimator
 
 ```{r}
-gdalf_fst_nei_args <- ()
-  
+gdalf_fst_nei_path <- "../../../Big_data/grenedalf_fstnei_out"
 
+unlink(gdalf_fst_nei_path, recursive = TRUE)
+
+dir.create(gdalf_fst_nei_path)
+
+grenedalf_fstnei_args <- c(
+  "fst",
+  "--frequency-table-path", "../../../Big_data/FF_grenedalf_input.csv",
+  
+  "--pool-sizes", "130",
+  
+  "--method", "unbiased-nei",
+  
+  "--window-type", "interval",
+  "--window-average-policy", "valid-loci",
+  "--filter-sample-min-count", "2",
+  "--filter-sample-min-read-depth", "4",
+  
+  "--window-interval-width", "100000",
+  "--window-interval-stride", "100000",
+  
+  "--out-dir", gdalf_fst_nei_path
+  )
+
+system2(
+  command = "/home/srikantv/miniforge3/bin/grenedalf",
+  args = grenedalf_fstnei_args,
+        
+  stdout = "../../../Big_data/grenedalf_fstnei_out/gdalf_fstnei_log.txt",
+  stderr = "../../../Big_data/grenedalf_fstnei_out/gdalf_fstnei_errors.txt"
+  )
 ```
 
-### Hudson estimator
+### Fst Nei estimator data load, wrangle and plot
+
+```{r}
+fstnei_out <- read_csv("../../../Big_data/grenedalf_fstnei_out/fst.csv")
+
+FF_FstNei <- fstnei_out %>% 
+  select(chrom, start, end, total.passed,
+         matches("\\.(passed|fst)"))
+```
+
+### Fst Hudson estimator
 
 ```{r}
 gdalf_fst_hudson_args <- ()
