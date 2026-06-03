@@ -39,7 +39,6 @@ saveRDS(u_pool, file= "../../../Big_data/SNPs_in_Founders_notin_FF.RDS")
 
 ```
 
-
 Set up commands for inference
 
 ```{r}
@@ -63,4 +62,3 @@ for(ii in 1:nrow(combs))
 }
 
 ```
-

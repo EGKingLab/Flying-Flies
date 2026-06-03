@@ -12,6 +12,21 @@ Srikant Venkitachalam (**SRI**)
 
 ### [Notes]{.underline}
 
+#### 2026_06_3 EGK:
+
+Completed haplotype inference. Used simulations to determine best window size and method: MLE method with 100,000bp windows. 
+
+Next steps:
+Fit model at haplotype level
+Try model on 8 freqs separately too?
+
+Randomization is after that
+
+Will use the following for snp analysis and single haplotype analysis for speed: https://adv-r.hadley.nz/perf-improve.html
+
+Got both models running very fast. Now just need to deploy.
+
+
 #### 2025_06_17 EGK:
 
 Processing initial SNP results- preliminary look. These large files are saved in Big_data and not tracked by git. First convert the vcf file into a snp table using a perl script and running the following:
