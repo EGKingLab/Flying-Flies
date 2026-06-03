@@ -9,7 +9,6 @@ library(tidyverse)
 
 ```
 
-
 ## Plan
 
 -   Merge SNP table with Founder SNP table - save as RDS
@@ -40,4 +39,28 @@ saveRDS(u_pool, file= "../../../Big_data/SNPs_in_Founders_notin_FF.RDS")
 
 ```
 
+
+Set up commands for inference
+
+```{r}
+AllArms <- c("X","2L","2R","3L","3R")
+pools <- c("CON1","CON2","CON3","CON4","FP1","FP2","FP3","FP4")
+
+combs <- crossing(AllArms, pools)
+
+cat("", file="Cmd_list_HapInf.txt")
+
+for(ii in 1:nrow(combs))
+{
+  cmd <- paste("Rscript Hap_Inference.R ",
+               combs$AllArms[ii],
+               " ",
+               combs$pools[ii],
+               " >temp",ii,".txt",
+               " 2>error",ii,".err &", sep="")
+  
+  cat(cmd, "\n", file="Cmd_list_HapInf.txt", append = TRUE)
+}
+
+```
 

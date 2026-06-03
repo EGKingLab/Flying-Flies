@@ -8,8 +8,6 @@ source("../../../Functions/read_from_h5.R")
 #ChArm <- "2L"
 #pool <- "FP1" #column of data
 
-
-
 args <- commandArgs(TRUE)
 ChArm <- args[1]
 pool <- args[2]
