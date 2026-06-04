@@ -50,7 +50,7 @@ allele frequency: ALL alleles at a site should be \>0.01 and \<0.99. Furthermore
 
 ```{r}
 # Remove all garbled chromosome names. Set CHROM as factor for easier plotting later. Even though chromosome names have been filtered, the 'unfiltered' in the variable name here refers strictly to allele frequency and read depth.
-FF_genomes_unfiltered <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "4", "X", "Y")) %>% mutate_at("CHROM", as.factor)
+FF_genomes_unfiltered <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "X")) %>% mutate_at("CHROM", as.factor)
 
 # make average frequency colum, min. and max. read depth columns
 FF_genomes_unfiltered <- FF_genomes_unfiltered %>% mutate(
