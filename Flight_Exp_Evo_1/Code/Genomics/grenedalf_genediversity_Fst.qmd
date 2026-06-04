@@ -255,6 +255,32 @@ print(FstNei_htmp_mean)
 print(FstNei_htmp_median)
 ```
 
+#### Fst Nei Scanplots
+
+```{r}
+FF_FstNei <- FF_FstNei %>% 
+  mutate(
+    Comparison = case_when(
+      substr(Focal_pop, 1, 1) == "C" & substr(Comp_pop, 1, 1) == "C" ~ "CONvsCON",
+      substr(Focal_pop, 1, 1) == "F" & substr(Comp_pop, 1, 1) == "F" ~ "FPvsFP",
+      TRUE ~ "CONvsFP"
+    )
+  )
+
+
+FstNei_scanplots <- FF_FstNei %>%
+  ggplot(aes(x = start, y = fst, color = Comparison, size = fst)) +
+  scale_size_area(max_size = 2) +
+  facet_grid(Comparison ~ chrom) +
+  geom_point(alpha = 0.5) +
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none"
+  )
+
+print(FstNei_scanplots)
+```
+
 ### Fst Hudson estimator
 
 ```{r}
