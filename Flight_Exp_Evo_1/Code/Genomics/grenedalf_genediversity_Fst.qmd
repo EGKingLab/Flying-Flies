@@ -99,7 +99,8 @@ FF_thetapi <- FF_thetapi %>%
   separate_wider_regex(cols = Population,
   patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")) %>% 
   mutate_at(c("Selection", "PopReplicate"), factor) %>% 
-  filter(chrom %in% c("2L", "2R", "3L", "3R", "X"))
+  filter(chrom %in% c("2L", "2R", "3L", "3R", "X")) %>% 
+  filter(!is.na(theta_pi))
   
 
 thetapi_box <- ggplot(data = FF_thetapi, aes(x = Selection, y = theta_pi, color = PopReplicate)) +
@@ -162,10 +163,100 @@ fstnei_out <- read_csv("../../../Big_data/grenedalf_fstnei_out/fst.csv")
 FF_FstNei <- fstnei_out %>% 
   select(chrom, start, end, total.passed,
          matches("\\.(passed|fst)"))
+
+FF_FstNei <- FF_FstNei %>% pivot_longer(
+  cols = contains(":"),
+  
+  names_to = c("Focal_pop", "Comp_pop", ".value"),
+  
+  names_pattern = "(.*?):(.*?)\\.(.*)"
+)
+
+if (identical(FF_FstNei$total.passed, FF_FstNei$passed)){
+  FF_FstNei <- FF_FstNei %>% select(-total.passed)
+} else {
+  stop("Mismatch between passed values (total vs. specific comparison")
+}
+
+FF_FstNei <- FF_FstNei %>% 
+  filter(chrom %in% c("2L", "2R", "3L", "3R", "X")) %>% 
+  filter(!is.na(fst))
+
+Summary_FstNei <- FF_FstNei %>% group_by(Focal_pop, Comp_pop) %>% 
+  summarise(mean_fst = mean(fst), median_fst = median(fst))
+
+all_pops <- sort(unique(c(as.character(Summary_FstNei$Focal_pop), as.character(Summary_FstNei$Comp_pop))))
+
+FstNei_heatmap_data <- Summary_FstNei %>% 
+  ungroup() %>% 
+  mutate(
+    Focal_pop = factor(Focal_pop, levels = all_pops),
+    Comp_pop = factor(Comp_pop, levels = all_pops),
+  ) %>% 
+  
+  complete(Focal_pop, Comp_pop) %>% 
+  
+  pivot_longer(
+    cols = c(mean_fst, median_fst),
+    names_to = "Measure",
+    values_to = "Value"
+  ) %>% 
+  mutate(
+    Focal_sel = gsub("[0-9]+$", "", as.character(Focal_pop)),
+    Comp_sel = gsub("[0-9]+$", "", as.character(Comp_pop)),
+    
+    Comparison = case_when(
+      Focal_pop == Comp_pop ~ "Self",
+      is.na(Value) ~ "Unmeasured",
+      Focal_sel == Comp_sel ~ "Within",
+      TRUE ~ "Between"
+    )
+  )
+
+FF_FstNei_mean <- FstNei_heatmap_data %>% filter(Measure == "mean_fst")
+
+FF_FstNei_median <- FstNei_heatmap_data %>% filter(Measure == "median_fst")
+
+FstNei_htmp_mean <- ggplot(data = FF_FstNei_mean, 
+    aes(x = Focal_pop, y = Comp_pop)) +
+  geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
+  
+  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
+  # 
+  # scale_color_manual(
+  #   values = c(
+  #     "Self" = "transparent",
+  #     "Unmeasured" = "transparent",
+  #     "Within" = "deepskyblue",
+  #     "Between" = "red"
+  #   )
+  # ) +
+  
+  labs(
+    x = "Focal Population",
+    y = "Compared Population",
+    fill = "Mean Fst",
+    title = "Mean Fst (Nei)"
+  )
+
+FstNei_htmp_median <- ggplot(data = FF_FstNei_median, 
+    aes(x = Focal_pop, y = Comp_pop)) +
+  geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
+  
+  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
+  labs(
+    x = "Focal Population",
+    y = "Compared Population",
+    fill = "Median Fst",
+    title = "Median Fst (Nei)"
+  )
+
+print(FstNei_htmp_mean)
+print(FstNei_htmp_median)
 ```
 
 ### Fst Hudson estimator
 
 ```{r}
-gdalf_fst_hudson_args <- ()
+gdalf_fst_hudson_args <- c()
 ```
