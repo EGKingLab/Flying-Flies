@@ -494,3 +494,15 @@ FstHudsonFPALL_scan <- FF_FstHudson %>%
 print(FstHudsonFP3_scan)
 print(FstHudsonFPALL_scan)
 ```
+
+### Boxplots for comparison categories (both Nei and Hudson)
+
+```{r}
+FstHudson_boxplot <- FF_FstHudson %>% 
+  ggplot(aes(x = Comparison, y = fst)) +
+  geom_boxplot() +
+  stat_summary(fun = mean, geom = "text", 
+               aes(label = after_stat(round(y, 4))), color = "red")
+
+print(FstHudson_boxplot)
+```
