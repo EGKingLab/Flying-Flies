@@ -155,25 +155,57 @@ pc2 <- pcadapt_output$scores[,2]
 ggplot()+geom_point(aes(x = pc1, y=pc2))
 ```
 
-### Linear Model
+## Linear models
+
+For each locus, fit the following models:
+
+i\) A linear model with default settings (normal distribution)
+
+ii\) A generalized linear model with quasibinomial distribution
 
 ```{r}
-FF_matrix <- FF_genomes_filtered[, seq(6,20, by=2)]
+FF_matrix_raw <- FF_genomes_filtered[, seq(6,20, by=2)]
+FF_depth <- FF_genomes_filtered[, seq(7,21, by=2)]
 
-FF_matrix <- as.matrix(FF_matrix)
-FF_matrix <- asin(sqrt(FF_matrix))
+FF_matrix <- as.matrix(FF_matrix_raw)
+FF_depth <- as.matrix(FF_depth)
 
 linear_output <- numeric(length = nrow(FF_matrix))
+
+ttest_output <- numeric(length = nrow(FF_matrix))
+
+quasbinom_output <- numeric(length = nrow(FF_matrix))
+
 perc_tracker <- round(nrow(FF_matrix) * 0.05)
 
-for(ii in 1:nrow(FF_matrix)){
+for(ii in 1:2){
   FF_temp <- data.frame(
     "Treatment" = rep(c("CON","FP"), each = 4), 
-    "Frequency" = FF_matrix[ii,])
+    "Frequency" = FF_matrix[ii,],
+    "Depth" = FF_depth[ii,])
   
-  mod_FF_temp <- lm(data = FF_temp, Frequency ~ Treatment)
+  # quasibinomial model
+  quasibinom_FFtemp <- glm(data = FF_temp,
+  Frequency ~ Treatment, 
+  family = "quasibinomial",
+  weights = Depth)
+  
+  # Arcsine squareroot transform data before fitting linear models
+  FF_temp <- FF_temp %>% 
+    mutate(Freq_asqrt = asin(sqrt(Frequency)))
+  
+  # linear model with anova
+  mod_FF_temp <- lm(data = FF_temp, 
+                    Freq_asqrt ~ Treatment)
   mod_FF_temp <- anova(mod_FF_temp)
   linear_output[ii] <- mod_FF_temp$`Pr(>F)`[1]
+  
+  # t test
+  ttest_FFtemp <- t.test(data = FF_temp, 
+                         Freq_asqrt ~ Treatment)
+  ttest_output[ii] <- ttest_FFtemp$p.value
+  
+  
   
   if (ii %% perc_tracker == 0){
     current_per <- (ii/nrow(FF_matrix) * 100)
@@ -211,7 +243,7 @@ x = POS, y = -log10(Pval_adj), size = -log10(Pval_adj))) +
 print(scanplot)
 ```
 
-### CMH Test
+## CMH Test
 
 mantelhaen.test
 
