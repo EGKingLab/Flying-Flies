@@ -454,3 +454,43 @@ FstHudson_scanplots <- FF_FstHudson %>%
 
 print(FstHudson_scanplots)
 ```
+
+#### Scanplot of only FP3 comparisons, all FP comparisons
+
+```{r}
+FstHudsonFP3_scan <- FF_FstHudson %>% 
+  filter(Focal_pop == "FP3" | Comp_pop == "FP3",
+         !Comparison == "CONvsCON") %>% 
+  ggplot(aes(x = start, y = fst, color = Comparison, size = fst)) +
+  scale_size_area(max_size = 2) +
+  facet_grid(Comparison ~ chrom) +
+  geom_point(alpha = 0.5) +
+  labs(
+    x = "Window (100kb) Start Position",
+    y = "Fst (Hudson)"
+  ) +
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none"
+  )
+
+FstHudsonFPALL_scan <- FF_FstHudson %>% 
+  filter(str_sub(Focal_pop, 1, -2) == "FP" | str_sub(Comp_pop, 1, -2) == "FP",
+         Comparison == "CONvsFP", 
+        ) %>% 
+  ggplot(aes(x = start, y = fst, color = Comp_pop, size = fst)) +
+  scale_size_area(max_size = 2) +
+  facet_grid(Comp_pop ~ chrom) +
+  geom_point(alpha = 0.5) +
+  labs(
+    x = "Window (100kb) Start Position",
+    y = "Fst (Hudson)"
+  ) +
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none"
+  )
+
+print(FstHudsonFP3_scan)
+print(FstHudsonFPALL_scan)
+```
