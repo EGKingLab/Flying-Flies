@@ -24,6 +24,17 @@ FF_genomes_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', heade
 
 # N refers to total coverage:
 # (line 62) $temp = $temp."\t".sprintf("%.2f",$RefFreq)."\t$TotalCount";
+
+# Make a plot of count of chromosomes
+plot_chrom_counts <- FF_genomes_raw %>% 
+  count(CHROM) %>% 
+  ggplot(aes(x = CHROM, y = log10(n))) +
+geom_col(fill = "lightblue", color = "darkblue")+
+  geom_text(aes(label=n), 
+            vjust=2, color = 'red',
+            size = 4) +
+  scale_y_continuous(limits = c(0, 6),
+                     breaks = seq(0, 6, 1))
 ```
 
 ## Data cleanup and apply filters
@@ -49,11 +60,65 @@ read depth: min. 20x, max. 500x (unchanged from previous implementation).
 allele frequency: ALL alleles at a site should be \>0.01 and \<0.99. Furthermore, all sites containing a singleton count will be removed.
 
 ```{r}
-# Remove all garbled chromosome names. Set CHROM as factor for easier plotting later. Even though chromosome names have been filtered, the 'unfiltered' in the variable name here refers strictly to allele frequency and read depth.
-FF_genomes_unfiltered <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "X")) %>% mutate_at("CHROM", as.factor)
+# Remove all garbled chromosome names, as well as the 4th and Y chromosome. Set CHROM as factor for easier plotting later. Even though chromosome names have been filtered, the 'unfiltered' in the variable name here refers strictly to allele frequency and read depth. 
+# Remove all NAs. 
+FF_genomes_unfiltered <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "X")) %>% mutate_at("CHROM", as.factor) %>% drop_na()
 
-# make average frequency colum, min. and max. read depth columns
-FF_genomes_unfiltered <- FF_genomes_unfiltered %>% mutate(
+# Convert data to long form for easier filtering and diagnostics. Change N_ to depth.
+FF_genomes_unfiltered <-  FF_genomes_unfiltered %>% 
+  pivot_longer(
+    cols = c(starts_with("freq_"), starts_with("N_")),
+    names_to = c(".value", "Population"),
+    names_pattern = "(freq_|N_)(.*)"
+  ) %>% rename(depth_ = N_)
+  mutate(ref_count = round(freq_ * depth_))
+
+FF_filter_summary <- FF_genomes_unfiltered %>% 
+  summarise(
+    total_snps = n(),
+    na_freq = sum(is.na(freq_)),
+    na_depth = sum(is.na(depth_)),
+    fail_singleton = sum(ref_count == 1 | ref_count == (depth_ - 1)),
+    fail_mindepth = sum(depth_ < min_depth),
+    fail_maxdepth = sum(depth_ > max_depth),
+    fail_minfreq = sum(freq_ < min_freq),
+    fail_maxfreq = sum(freq > max_freq),
+    .by = Population
+  )
+
+# filter out: 
+# all singletons
+# read depth min 20x, max 500x
+# ref freq max > 0.01 and min < 0.99
+min_depth <- 20
+max_depth <- 500
+min_freq <- 0.01
+max_freq <- 0.99
+
+# apply filters and convert to wide format for easier analyses
+FF_genomes_filtered <-  %>% 
+  group_by(CHROM, POS) %>% 
+  filter(!any(
+    # singleton filter
+    ref_count==1 | ref_count==(N_-1) |
+    # read depth filter
+    N_ < min_depth | N_ > max_depth |
+    # allele frequency filter
+    freq_ < min_freq | freq_ > max_freq
+    )) %>% 
+  ungroup() %>% 
+  select(-ref_count) %>% 
+  pivot_wider(
+    names_from = Population,
+    values_from = c(freq_, N_),
+    names_glue = "{.value}{Population}"
+  )
+  
+
+# make min. and max. frequency column, 
+# min. and max. read depth column
+
+FF_genomes_nosingle <- FF_genomes_nosingle %>% mutate(
   min_depth = do.call(pmin, c(pick(starts_with("N_")), na.rm = TRUE)),
   max_depth = do.call(pmax, c(pick(starts_with("N_")), na.rm = TRUE)),
   min_freq = do.call(pmin, c(pick(starts_with("freq_")), na.rm = TRUE)),
