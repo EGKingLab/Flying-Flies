@@ -1,0 +1,43 @@
+---
+title: "gene_enrichment"
+format: html
+editor: visual
+---
+
+# Gene Ontology and Enrichment
+
+## Load packages and SNP differentiation data
+
+```{r}
+library(tidyverse)
+library(GenomicRanges)
+library(clusterProfiler)
+library(enrichplot)
+
+library(org.Dm.eg.db)
+library(TxDb.Dmelanogaster.UCSC.dm6.ensGene)
+
+FF_results <- readRDS("../../../Big_data/FF_results.RDS")
+```
+
+## Retrieve annotated genes and map target SNPs
+
+```{r}
+# filter all significant sites
+significant_sites <- FF_results %>% filter(lm_AdjPval < 0.05)
+
+# load Drosophila melanogaster genomic architechture
+txdb <- TxDb.Dmelanogaster.UCSC.dm6.ensGene
+# load all D. melanogaster genes coordinates data
+genes_data <- genes(txdb)
+
+# function to map SNP data to genes based on coordinates
+map_snp2gene <- function(SNP_data, gene_coords){
+  gr_data <- GRanges(
+    seqnames = SNP_data$CHROM,
+    ranges = IRanges(start = SNP_data$POS, end = SNP_data$POS)
+  )
+  
+  
+}
+```
