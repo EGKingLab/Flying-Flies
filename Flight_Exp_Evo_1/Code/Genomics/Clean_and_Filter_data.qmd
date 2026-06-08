@@ -8,6 +8,7 @@ format: html
 ```{r}
 library(tidyverse)
 library(cowplot)
+library(ComplexUpset)
 
 theme_set(theme_cowplot())
 ```
@@ -25,16 +26,6 @@ FF_genomes_raw <- read.table('../../../Big_data/FlyingFlies_SNPtable.txt', heade
 # N refers to total coverage:
 # (line 62) $temp = $temp."\t".sprintf("%.2f",$RefFreq)."\t$TotalCount";
 
-# Make a plot of count of chromosomes
-plot_chrom_counts <- FF_genomes_raw %>% 
-  count(CHROM) %>% 
-  ggplot(aes(x = CHROM, y = log10(n))) +
-geom_col(fill = "lightblue", color = "darkblue")+
-  geom_text(aes(label=n), 
-            vjust=2, color = 'red',
-            size = 4) +
-  scale_y_continuous(limits = c(0, 6),
-                     breaks = seq(0, 6, 1))
 ```
 
 ## Data cleanup and apply filters
@@ -79,6 +70,16 @@ FF_genomes_unfiltered <-  FF_genomes_unfiltered %>%
   # this leaves freq_CON1, N_CON1, and so on.
   mutate(Population = str_remove(Population, "_.*"))
 
+# filtering out criteria: 
+# all singletons
+# read depth min 20x, max 500x
+# ref freq max > 0.01 and min < 0.99
+min_depth <- 20
+max_depth <- 500
+min_freq <- 0.01
+max_freq <- 0.99
+
+# Pre-filter diagnostics
 FF_filter_summary <- FF_genomes_unfiltered %>% 
   summarise(
     total_snps = n(),
@@ -93,15 +94,6 @@ FF_filter_summary <- FF_genomes_unfiltered %>%
     Nmiss_check = sum(Nmiss),
     .by = Population
   )
-
-# filter out: 
-# all singletons
-# read depth min 20x, max 500x
-# ref freq max > 0.01 and min < 0.99
-min_depth <- 20
-max_depth <- 500
-min_freq <- 0.01
-max_freq <- 0.99
 
 # apply filters and convert to wide format for easier analyses. drop Nmiss.
 FF_genomes_filtered <-  FF_genomes_unfiltered %>% 
@@ -134,33 +126,96 @@ saveRDS(FF_genomes_filtered,
         file = "../../../Big_data/FF_genomes_filtered.RDS")
 ```
 
-#### Makes plots of read depth and allele frequency before filtering
+#### Make summary plots for SNP count across chromosomes, read depth and allele frequency distributions, filtered numbers
 
 ```{r}
-FF_unfilt_long <- FF_genomes_unfiltered %>% 
-  mutate(SNP_ID = paste(CHROM, POS, sep = "_")) %>% 
-  pivot_longer(
-  cols = c(starts_with('freq_'), starts_with('N_')),
-  names_to = c(".value", "Population"),
-  names_pattern = "(freq|N)_(.*)"
-  )
+# Make a plot of count of chromosomes using raw data
+plot_chrom_counts <- FF_genomes_raw %>% 
+  mutate(Chromosome =
+  fct_other(
+    CHROM, c("X", "Y", "2L", "2R", "3L", "3R", "4"), other_level = "Others")
+  ) %>% 
+  count(Chromosome) %>% 
+  ggplot(aes(x = Chromosome, y = log10(n))) +
+geom_col(fill = "lightblue", color = "darkblue")+
+  geom_text(aes(label=n), 
+            vjust=2, color = 'red', fontface = 'bold',
+            size = 4) +
+  labs(title = "Counts of SNPs at each Chromosome",
+         x = "Chromosome",
+         y = "log10(SNP count)")
+  
+print(plot_chrom_counts)
 
-FF_unfilt_long <- FF_unfilt_long %>% 
-  rename(Allele_freq = freq,
-         Read_depth = N)
+# Process data for read depth and allele frequency plots
+FF_filter_status <- FF_genomes_unfiltered %>% 
+  group_by(CHROM, POS) %>% 
+  mutate(depth_filter = ifelse(depth_ < min_depth |depth_ > max_depth,
+                               "remove", "retain"),
+         freq_filter = ifelse(freq_ < min_freq | freq_ > max_freq,
+                               "remove", "retain"),
+         single_filter = ifelse(ref_count == 1 | ref_count == (depth_ - 1),
+                               "remove", "retain")
+         )
 
-rdepth_plot <- ggplot(data = FF_unfilt_long) +
-  geom_histogram(aes(x = log10(Read_depth)), color = 'darkblue', fill = 'steelblue2')
+# Depth filter plot: does not account for positional filtering. i.e., one position may have multiple reads above 20x but still gets filtered. This histogram will be confusing if colored by removed depth at a given position, since one of those may be below 20x but ALL at the position will be filtered out. Same logic holds for allele frequency plot. Both are commented out for this reason, and instead the Venn diagram is shown.
+
+rdepth_plot <- ggplot(data = FF_filter_status,
+          aes(x = log10(depth_), fill = depth_filter, color = depth_filter)) +
+  geom_histogram(
+    aes(y = after_stat(log10(count + 1))),
+    binwidth = 0.1, position = "identity", alpha = 0.8) +
+  scale_fill_manual(values = c("retain" = 'steelblue2', "remove" = 'salmon'))+
+  scale_color_manual(values = c("retain" = 'darkblue', "remove" = 'darkred'))+
+
+  geom_vline(xintercept = c(log10(min_depth), log10(max_depth)),
+             color = 'darkred', linetype = 'dashed') +
+  labs(title = "Read depth histogram\nfiltered at min. 20 and max. 500",
+       x = "log10(read depth)",
+       y = "log10(count + 1)")
 
 print(rdepth_plot)
 
-rdepth_low <- ggplot(data = FF_unfilt_long) +
-  geom_histogram(aes(x = Read_depth), color = 'darkgreen', fill = 'lightgreen') + xlim(0, 30)
+# Allele frequency filter plot
+freq_plot <- ggplot(data = FF_filter_status,
+          aes(x = freq_, fill = freq_filter, color = freq_filter)) +
+  geom_histogram(
+    aes(y = after_stat(log10(count + 1))),
+    binwidth = 0.01, position = "identity", alpha = 0.8) +
+  scale_fill_manual(values = c("retain" = 'cyan', "remove" = 'salmon'))+
+  scale_color_manual(values = c("retain" = 'cyan4', "remove" = 'darkred'))+
 
-print(rdepth_low)
+  geom_vline(xintercept = c(min_freq, max_freq),
+             color = 'darkred', linetype = 'dashed') +
+  labs(title = "Ref. frequency histogram\nfiltered at min. 0.01 and max. 0.99",
+       x = "ref. allele frequency",
+       y = "log10(count + 1)")
 
-rdepth_high <- ggplot(data = FF_unfilt_long) +
-  geom_histogram(aes(x = Read_depth), color = 'darkred', fill = 'salmon') + xlim(200, 500) + ylim(0, 3000)
+print(freq_plot)
 
-print(rdepth_high)
+# Upset plot of filtered SNP counts
+# filtered_cols <- c(
+#   "mindepth_filter", "maxdepth_filter", "freq_filter", "single_filter")
+# 
+# filterupset <- suppressWarnings(upset(FF_filter_status, 
+#   filtered_cols, name = "Filter Criteria", width_ratio = 0.15, 
+#   set_sizes = (upset_set_size() + geom_bar(fill = 'steelblue2') +
+#                labs(title = "Total Filtered")
+#                 )))
+
+# Venn diagram of overlaps in filtered out values, as well as their respective counts
+
+```
+
+#### Save plots
+
+```{r}
+# chrom counts
+ggsave(plot_chrom_counts, filename = "../../Plots/chrom_counts.jpeg", dpi = 400, width = 12, height = 6)
+
+# gross rdepth histogram
+ggsave(rdepth_plot, filename = "../../Plots/read_depth.jpeg", dpi = 400, width = 12, height = 6)
+
+# gross freq histogram
+ggsave(freq_plot, filename = "../../Plots/freq_hist.jpeg", dpi = 400, width = 12, height = 6)
 ```
