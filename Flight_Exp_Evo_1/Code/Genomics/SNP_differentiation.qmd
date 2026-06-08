@@ -1,0 +1,114 @@
+---
+title: "SNP_differentiation"
+format: html
+editor: visual
+---
+
+# Testing SNP differentiation using linear models
+
+## Read filtered SNP table and load packages
+
+Also sets the cowplot theme
+
+```{r}
+library(tidyverse)
+library(cowplot)
+
+theme_set(theme_cowplot())
+
+FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
+
+```
+
+## Linear models
+
+For each locus, fit the following models:
+
+i\) A linear model with default settings (normal distribution)
+
+ii\) A generalized linear model with quasibinomial distribution
+
+```{r}
+FF_matrix_raw <- FF_genomes_filtered[, seq(5,12, by=1)]
+FF_depth <- FF_genomes_filtered[, seq(13,20, by=1)]
+
+FF_matrix <- as.matrix(FF_matrix_raw)
+FF_depth <- as.matrix(FF_depth)
+
+linear_output <- numeric(length = nrow(FF_matrix))
+
+ttest_output <- numeric(length = nrow(FF_matrix))
+
+quasibinom_output <- numeric(length = nrow(FF_matrix))
+
+perc_tracker <- round(nrow(FF_matrix) * 0.05)
+
+paste0("Progress: START")
+
+for(ii in 1:nrow(FF_matrix)){
+  FF_temp <- data.frame(
+    "Treatment" = rep(c("CON","FP"), each = 4), 
+    "Frequency" = FF_matrix[ii,],
+    "Depth" = FF_depth[ii,])
+  
+  # quasibinomial model
+  quasibinom_FFtemp <- glm(data = FF_temp,
+  Frequency ~ Treatment, 
+  family = "quasibinomial",
+  weights = Depth)
+  
+  quasibinom_output[ii] <- as.double(tidy(quasibinom_FFtemp)[2,5])
+  # Arcsine squareroot transform data before fitting linear models
+  FF_temp <- FF_temp %>% 
+    mutate(Freq_asqrt = asin(sqrt(Frequency)))
+  
+  # linear model with anova
+  mod_FF_temp <- lm(data = FF_temp, 
+                    Freq_asqrt ~ Treatment)
+  mod_FF_temp <- anova(mod_FF_temp)
+  linear_output[ii] <- mod_FF_temp$`Pr(>F)`[1]
+  
+  # t test
+  ttest_FFtemp <- t.test(data = FF_temp, 
+                         Freq_asqrt ~ Treatment, var.equal = TRUE)
+  ttest_output[ii] <- ttest_FFtemp$p.value
+  
+  
+  
+  if (ii %% perc_tracker == 0){
+    current_per <- (ii/nrow(FF_matrix) * 100)
+    cat("Progress: ", current_per, "%\n")
+  }
+}
+
+FF_results <- FF_genomes_filtered[, c(1, 2)] %>% 
+             mutate(CHROM = fct_drop(CHROM))
+
+FF_results$lm_adjPval <- p.adjust(linear_output, method = "fdr")
+FF_results$t_adjPval <- p.adjust(ttest_output, method = "fdr")
+FF_results$qb_adjPval <- p.adjust(quasibinom_output, method = "fdr")
+
+```
+
+```{r}
+X_CHROM <- FF_results %>% group_by(CHROM) %>% summarise(center = (min(POS) + max(POS))/2)
+
+scanplot <- ggplot(data = FF_results, aes(
+x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(X_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(FDR adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+print(scanplot)
+```
+
+## 
