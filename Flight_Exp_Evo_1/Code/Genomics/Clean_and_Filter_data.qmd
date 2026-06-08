@@ -164,7 +164,7 @@ rdepth_plot <- ggplot(data = FF_filter_status,
           aes(x = log10(depth_), fill = depth_filter, color = depth_filter)) +
   geom_histogram(
     aes(y = after_stat(log10(count + 1))),
-    binwidth = 0.1, position = "identity", alpha = 0.8) +
+    binwidth = 0.05, position = "identity", alpha = 0.8) +
   scale_fill_manual(values = c("retain" = 'steelblue2', "remove" = 'salmon'))+
   scale_color_manual(values = c("retain" = 'darkblue', "remove" = 'darkred'))+
 
