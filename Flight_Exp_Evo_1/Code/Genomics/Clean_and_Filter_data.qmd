@@ -50,6 +50,8 @@ read depth: min. 20x, max. 500x (unchanged from previous implementation).
 
 allele frequency: ALL alleles at a site should be \>0.01 and \<0.99. Furthermore, all sites containing a singleton count will be removed.
 
+2026-06-08: the filtering out of a SNP for ANY allele being less than 0.01 or 0.99 was thought to be too conservative. With read depth as well, the filter will be changed to ensuring that the max. value of a SNP should not be less than 20 and the min. value of a SNP should not be more than 500. Singleton filtering removed, since one singleton at a site out of 8 populations is too conservative. The allele frequency filtering should account for improbably low reads. As an addition, the sites which are found significantly differentiated based on the linear model analysis will be checked post analysis for the allele frequency and read depth distributions.
+
 ```{r}
 # Remove all garbled chromosome names, as well as the 4th and Y chromosome. Set CHROM as factor for easier plotting later. Even though chromosome names have been filtered, the 'unfiltered' in the variable name here refers strictly to allele frequency and read depth. 
 # Remove all NAs. 
