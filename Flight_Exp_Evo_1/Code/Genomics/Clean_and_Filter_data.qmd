@@ -64,14 +64,20 @@ allele frequency: ALL alleles at a site should be \>0.01 and \<0.99. Furthermore
 # Remove all NAs. 
 FF_genomes_unfiltered <- FF_genomes_raw %>% filter(CHROM %in% c("2L", "2R", "3L", "3R", "X")) %>% mutate_at("CHROM", as.factor) %>% drop_na()
 
+prefilter_length <- length(FF_genomes_unfiltered$POS)
+
 # Convert data to long form for easier filtering and diagnostics. Change N_ to depth.
 FF_genomes_unfiltered <-  FF_genomes_unfiltered %>% 
   pivot_longer(
     cols = c(starts_with("freq_"), starts_with("N_")),
     names_to = c(".value", "Population"),
     names_pattern = "(freq_|N_)(.*)"
-  ) %>% rename(depth_ = N_)
-  mutate(ref_count = round(freq_ * depth_))
+  ) %>% rename(depth_ = N_) %>% 
+  mutate(ref_count = round(freq_ * depth_)) %>% 
+  # Removes all text after the second underscore,
+  # used to remove _G13_sample...
+  # this leaves freq_CON1, N_CON1, and so on.
+  mutate(Population = str_remove(Population, "_.*"))
 
 FF_filter_summary <- FF_genomes_unfiltered %>% 
   summarise(
@@ -82,7 +88,9 @@ FF_filter_summary <- FF_genomes_unfiltered %>%
     fail_mindepth = sum(depth_ < min_depth),
     fail_maxdepth = sum(depth_ > max_depth),
     fail_minfreq = sum(freq_ < min_freq),
-    fail_maxfreq = sum(freq > max_freq),
+    fail_maxfreq = sum(freq_ > max_freq),
+    # Ensures that Nmiss has no value >0
+    Nmiss_check = sum(Nmiss),
     .by = Population
   )
 
@@ -95,14 +103,15 @@ max_depth <- 500
 min_freq <- 0.01
 max_freq <- 0.99
 
-# apply filters and convert to wide format for easier analyses
-FF_genomes_filtered <-  %>% 
+# apply filters and convert to wide format for easier analyses. drop Nmiss.
+FF_genomes_filtered <-  FF_genomes_unfiltered %>% 
+  select(-Nmiss) %>% 
   group_by(CHROM, POS) %>% 
   filter(!any(
     # singleton filter
-    ref_count==1 | ref_count==(N_-1) |
+    ref_count==1 | ref_count==(depth_-1) |
     # read depth filter
-    N_ < min_depth | N_ > max_depth |
+    depth_ < min_depth | depth_ > max_depth |
     # allele frequency filter
     freq_ < min_freq | freq_ > max_freq
     )) %>% 
@@ -110,32 +119,12 @@ FF_genomes_filtered <-  %>%
   select(-ref_count) %>% 
   pivot_wider(
     names_from = Population,
-    values_from = c(freq_, N_),
+    values_from = c(freq_, depth_),
     names_glue = "{.value}{Population}"
   )
-  
 
-# make min. and max. frequency column, 
-# min. and max. read depth column
+filtered_out <- prefilter_length - length(FF_genomes_filtered$POS)
 
-FF_genomes_nosingle <- FF_genomes_nosingle %>% mutate(
-  min_depth = do.call(pmin, c(pick(starts_with("N_")), na.rm = TRUE)),
-  max_depth = do.call(pmax, c(pick(starts_with("N_")), na.rm = TRUE)),
-  min_freq = do.call(pmin, c(pick(starts_with("freq_")), na.rm = TRUE)),
-  max_freq = do.call(pmax, c(pick(starts_with("freq_")), na.rm = TRUE)),
-  )
-
-pre_filter_length <- length(FF_genomes_unfiltered$POS)
-
-# filter allele frequency and read depth (see text above for threshold)
-FF_genomes_filtered <- FF_genomes_unfiltered %>% filter(
-  (mean_freq > 0.01 & mean_freq < 0.99), min_depth > 20, max_depth < 500)
-
-post_filter_length <- length(FF_genomes_filtered$POS)
-
-filtered_out <- pre_filter_length - post_filter_length
-
-# ENSURE THAT Nmiss HAS NO VALUE >0!
 ```
 
 #### Save filtered data
