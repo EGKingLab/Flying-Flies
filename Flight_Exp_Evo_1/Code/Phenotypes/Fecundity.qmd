@@ -26,7 +26,7 @@ theme_set(theme_cowplot())
 Imported into a tibble "Fecund_data_raw" and processed into "Fecund_data"
 
 ```{r}
-Fecund_data_raw <- read_excel("FF_Fecundity.xlsx")
+Fecund_data_raw <- read_excel("~/Flying_Flies_Phenotyping/Raw_data/FF_Fecundity.xlsx", na = "NA")
 
 Fecund_data <- Fecund_data_raw %>% 
   mutate(TotF = PopFemales + Crush_or_Esc_F + Dead_F,
@@ -52,28 +52,35 @@ Fit full model (with 3 replicates per treatment combination)
 NOTE: lmer can't fit model with plates nested within population replicates, because there is no replication within plate readings.
 
 ```{r}
-fit_Fec_1 <- lmer(data = Fecund_data, REML = T,
+fit_Fec <- lmer(data = Fecund_data, REML = TRUE,
   Ind_Fec ~ Selection + (1|PopRep))
 
-anova(fit_Fec_1)
-```
+anova(fit_Fec)
 
-Fit mean fecundity (average across all three plates).
+Fecund_data <- Fecund_data %>% mutate(log_Fec = -(log(Ind_Fec + 0.00001)))
+# log transformed analysis
+fit_Fec_log <- lmer(data = Fecund_data, REML = TRUE,
+                    log_Fec ~ Selection + (1|PopRep))
 
-```{r}
-fit_Fec_mean <- lme(data = Mean_fec, method = "REML",
-                     M_Fec ~ Selection, random = ~1|PopRep)
-
-anova(fit_Fec_mean)
+anova(fit_Fec_log)
 ```
 
 ## Plots
 
 ```{r}
-ggplot(data = Fecund_data, aes(x = Selection, y = Ind_Fec)) +
-  geom_boxplot(outlier.shape = NA) + 
+fec_plot <- ggplot(data = Fecund_data, aes(x = Selection, y = Ind_Fec)) +
+  geom_boxplot(color = 'darkblue',outlier.shape = NA) + 
   geom_point(aes(shape = Replicate), 
              position = position_jitter(width = 0.1), 
-             size = 1.5, color = "steelblue") + 
- stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
+             size = 3, color = "steelblue", alpha = 0.5) + 
+ stat_summary(fun = "mean", color = "red", shape = "-", size = 4)+
+  labs(x = "Selection", y = "Fecundity in 2 hour window (per capita)")
+
+print(fec_plot)
+```
+
+#### Save fecundity plot
+
+```{r}
+ggsave(fec_plot, filename = "../../Plots/fec_plot.jpeg", dpi = 400, width = 12, height = 6)
 ```
