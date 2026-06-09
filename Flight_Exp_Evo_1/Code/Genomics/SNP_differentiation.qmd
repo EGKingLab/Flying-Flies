@@ -22,9 +22,9 @@ FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
 
 ## Linear models
 
-Manually calculate t-test via matrix calculations.
+### Manual t test calculation
 
-Step 1. Prepare t-test function.
+Manually calculate t-test via matrix calculations.
 
 ```{r}
 SNP_ID <- paste0(FF_genomes_filtered$CHROM, "_", FF_genomes_filtered$POS)
@@ -48,11 +48,84 @@ n_FP <- ncol(mat_FP)
 var_CON <- (rowSums(mat_CON^2) - (n_CON * (mean_CON^2)))/(n_CON - 1)
 var_FP <- (rowSums(mat_FP^2) - (n_FP * (mean_FP^2)))/(n_FP - 1)
 
-se_total <- sqrt((var_CON/n_CON) + (var_FP/n_FP))
+sesq_CON <- var_CON/n_CON
+sesq_FP <- var_FP/n_FP
+se_total <- sqrt(sesq_CON + sesq_FP)
 
 t_stat <- (mean_CON - mean_FP)/se_total
 
-p_vals <- pt(abs(t_stat),6,lower.tail=FALSE) * 2
+# Welch-Satterthwaite d.o.f. calculation
+dof_numer <- (sesq_CON + sesq_FP)^2
+dof_denom <- ((sesq_CON^2)/(n_CON-1)) + ((sesq_FP^2)/(n_FP-1))
+dof_welch <- dof_numer/dof_denom
+
+p_vals <- pt(abs(t_stat), dof_welch ,lower.tail=FALSE) * 2
+
+test_loop <- 1000
+random_indices <- sample(1:nrow(mat_CON), test_loop, replace = FALSE)
+t_match <- tibble(indices = random_indices, 
+                  manual_ttest = numeric(length = test_loop),
+                  R_ttest = numeric(length = test_loop),
+                  difference = numeric(length = test_loop))
+cc <-  0
+for(rr in random_indices){
+  cc <-  cc + 1
+  t_match$manual_ttest[cc] <- p_vals[rr]
+  
+  t_try <- t.test(mat_CON[rr, ], mat_FP[rr, ])
+  t_match$R_ttest[cc] <- t_try$p.value
+  
+  t_match$difference[cc] = t_match$manual_ttest[cc] - t_match$R_ttest[cc] 
+  
+  #stopifnot(p_vals[rr] == t_try$p.value)  
+}
+
+# plot -log10 of the difference between 1000 random t tests and manual t test.
+boxplot(-log10(abs(t_match$difference) + 0.1^20))
+
+na_indices <- which(!complete.cases(t_match$difference))
+
+boxplot(-log10(p_vals))
+
+adj_pvals <- p.adjust(p_vals, method = 'fdr')
+
+boxplot(-log10(adj_pvals))
+```
+
+#### Scanplot for manual t-test p-values
+
+```{r}
+FF_ttestres <- p_vals %>% as_tibble(rownames = "SNP_ID") %>% 
+  separate_wider_delim(
+    cols = SNP_ID,
+    delim = "_",
+    names = c("Chromosome", "Position"),
+  ) %>% rename(P_vals = value) %>% mutate(Position = as.numeric(Position))
+
+
+# FDR correction on P values
+FF_ttestres$adj_pvals <- p.adjust(p_vals, method = "fdr")
+
+# Chromosomal IDs for scanplot
+Xaxis_CHROM <- FF_ttestres %>% group_by(Chromosome) %>% 
+  summarise(center = (min(Position) + max(Position))/2)
+
+ttest_scanplot <- ggplot(data = FF_ttestres, aes(
+x = Position, y = -log10(adj_pvals), size = -log10(adj_pvals))) +
+  facet_grid(.~ Chromosome) +
+  geom_point(aes(color = Chromosome), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$Chromosome))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(FDR adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+print(ttest_scanplot)
 ```
 
 OLD: For each locus, fit the following models:
