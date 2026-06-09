@@ -22,7 +22,40 @@ FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
 
 ## Linear models
 
-For each locus, fit the following models:
+Manually calculate t-test via matrix calculations.
+
+Step 1. Prepare t-test function.
+
+```{r}
+SNP_ID <- paste0(FF_genomes_filtered$CHROM, "_", FF_genomes_filtered$POS)
+
+mat_CON <- as.matrix(FF_genomes_filtered[, c("freq_CON1", "freq_CON2", "freq_CON3", "freq_CON4")])
+rownames(mat_CON) <- SNP_ID
+
+mat_FP <- as.matrix(FF_genomes_filtered[, c("freq_FP1", "freq_FP2", "freq_FP3", "freq_FP4")])
+rownames(mat_FP) <- SNP_ID
+
+# Arcsine squareroot transformation
+mat_CON <- asin(sqrt(mat_CON))
+mat_FP <- asin(sqrt(mat_FP))
+
+mean_CON <- rowMeans(mat_CON)
+mean_FP <- rowMeans(mat_FP)
+
+n_CON <- ncol(mat_CON)
+n_FP <- ncol(mat_FP)
+
+var_CON <- (rowSums(mat_CON^2) - (n_CON * (mean_CON^2)))/(n_CON - 1)
+var_FP <- (rowSums(mat_FP^2) - (n_FP * (mean_FP^2)))/(n_FP - 1)
+
+se_total <- sqrt((var_CON/n_CON) + (var_FP/n_FP))
+
+t_stat <- (mean_CON - mean_FP)/se_total
+
+p_vals <- pt(abs(t_stat),6,lower.tail=FALSE) * 2
+```
+
+OLD: For each locus, fit the following models:
 
 i\) A linear model with default settings (normal distribution)
 
