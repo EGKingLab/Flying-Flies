@@ -42,7 +42,59 @@ Mass_data <- Mass_data_raw %>% group_by(Selection, PopReplicate, Vial, Sex, Vial
   
 ```
 
-### Analysis
+## Analysis
+
+### AIC model selection
+
+```{r}
+# Only selection
+fit_sel1 <- lmer(data = Mass_data, REML = FALSE,
+                DryMass ~ Selection + (1|PopRep))
+
+# Only sex
+fit_sex2 <- lmer(data = Mass_data, REML = FALSE,
+                DryMass ~ Sex + (1|PopRep))
+
+# Full factorial model
+fit_full3 <- lmer(data = Mass_data, REML = FALSE,
+                DryMass ~ Selection * Sex + (1|PopRep))
+
+aictab(cand.set = list(fit_sel1, fit_sex2, fit_full3))
+```
+
+Based on AICc scores, the fully factorial model with main and interaction effects of Selection and Sex has been selected.
+
+### Calculating effect sizes
+
+Both eta-squared and Cohen's F (analogous to Cohen's D when there are 2 levels) are calculated for the models with the highest support according to AICc.
+
+```{r}
+fit_full_reml <- lmer(data = Mass_data, REML = TRUE,
+                DryMass ~ Selection * Sex + (1|PopRep))
+
+eta_squared(fit_full_reml)
+cohens_f(fit_full_reml)
+
+```
+
+### Analyse sexes separately
+
+```{r}
+# Female
+F_Mass_data <- Mass_data %>% filter(Sex == "F")
+
+fit_sel_f <- lmer(data = F_Mass_data, REML = TRUE,
+                DryMass ~ Selection + (1|PopRep))
+anova(fit_sel_f)
+
+M_Mass_data <- Mass_data %>% filter(Sex == "M")
+
+fit_sel_m <- lmer(data = M_Mass_data, REML = TRUE,
+                DryMass ~ Selection + (1|PopRep))
+anova(fit_sel_m)
+```
+
+### OLD: Dredge function
 
 AIC table using dredge function
 
@@ -60,6 +112,24 @@ selected_model_Mass <- lmer(data = Mass_data, REML = TRUE,
   DryMass ~ Selection * Sex + (1|PopRep))
 
 eta_squared(selected_model_Mass)
+```
+
+### Plots
+
+```{r}
+mass_plot <- ggplot(data = Mass_data, aes(x = Selection, y = DryMass)) +
+  geom_boxplot(color = 'darkblue', outlier.shape = NA) +
+  geom_point(aes(shape = PopReplicate), color = 'steelblue1', position = position_jitter(width = 0.1), alpha = 0.5) +
+  facet_grid(.~Sex) +
+  stat_summary(fun = 'mean', color = 'red', size = 4, shape = '-') + labs(x = "Selection", y = "Dry Mass (10^-4g)")
+
+print(mass_plot)
+```
+
+#### Save plot
+
+```{r}
+ggsave(mass_plot, filename = "../../Plots/mass_plot.jpeg", dpi = 400, width = 12, height = 6)
 ```
 
 #### Old Analysis
