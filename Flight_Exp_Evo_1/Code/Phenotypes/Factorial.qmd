@@ -19,7 +19,6 @@ library(cowplot)
 library(AICcmodavg)
 library(lmerTest)
 library(effectsize)
-library(MuMIn)
 
 theme_set(theme_cowplot())
 ```
@@ -86,9 +85,90 @@ Mean_dist <- Mean_dist %>%
   mutate_at(c("PopRep", "RunSetNest"), factor)
 ```
 
+## Check AIC scores of models
+
+```{r}
+# Only Selection
+fit_sel1 <- lmer(meandist ~ Selection + (1|PopRep),
+                data = Mean_dist, REML = FALSE)
+
+# Only Light
+fit_light2 <- lmer(meandist ~ Light_Status + (1|PopRep),
+                  data = Mean_dist, REML = FALSE)
+
+# Only Fan
+fit_fan3 <- lmer(meandist ~ Fan_Status + (1|PopRep),
+                data = Mean_dist, REML = FALSE)
+
+# All main effects
+fit_main4 <- lmer(meandist ~ Selection + Light_Status + Fan_Status + (1|PopRep), data = Mean_dist, REML = FALSE)
+
+# Selection crossed with Light_Status and Fan_Status
+fit_selcross5 <- lmer(meandist ~ Selection:Light_Status + Selection:Fan_Status + (1|PopRep),
+                 data = Mean_dist, REML = FALSE)
+
+# Complete model
+fit_factorial6 <- lmer(meandist ~ Selection*Light_Status*Fan_Status + (1|PopRep), data = Mean_dist, REML = FALSE)
+
+aictab(cand.set = list(fit_sel1, fit_light2, fit_fan3, fit_main4, fit_selcross5, fit_factorial6))
+```
+
+Based on AICc scores, the model with main additive effects of Selection, Light_Status and Fan_Status has been selected.
+
+### Calculating effect sizes
+
+Both eta-squared and Cohen's F (analogous to Cohen's D when there are 2 levels) are calculated for the models with the highest support according to AICc.
+
+```{r}
+fit_main_reml <- lmer(meandist ~ Selection + Light_Status + Fan_Status + (1|PopRep), data = Mean_dist, REML = TRUE)
+eta_squared(fit_main_reml)
+cohens_f(fit_main_reml)
+cohens_d(fit_main_reml)
+```
+
+ANOVA on selected model
+
+```{r}
+anova_fit_main <- anova(fit_main_reml)
+
+tidy(anova_fit_main)
+```
+
+## Plots
+
+All plots made are for factors included in the best supported models.
+
+#### Main effects of Selection, Light Status and Fan Status
+
+```{r}
+# convert data to long form with all factors under one column
+Mean_dist_plots <- Mean_dist %>% 
+  pivot_longer(cols = c(Selection, Light_Status, Fan_Status),
+               names_to = "Factor", values_to = "fct_level") %>% 
+  # Make boxplots for main effect comparisons
+  ggplot(aes(x = fct_level, y = meandist, color = Factor)) + 
+  facet_grid(.~Factor, scales = "free_x") +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+  geom_point(aes(shape = PopReplicate), 
+             position = position_jitter(width = 0.1)) +
+  stat_summary(fun = "mean", color = "black", shape = "-", size = 4) + 
+  labs(x = "Comparison", y = "Mean Chambers Traversed")
+print(Mean_dist_plots)
+```
+
+#### Save plot
+
+```{r}
+ggsave(Mean_dist_plots, filename = "../../Plots/Fact_meandist_main.jpeg", dpi = 400, width = 12, height = 6)
+```
+
+===============================================
+
+## OLD CODE
+
 #### Old AICtab code
 
-Unused as of 21 April 2026
+Unused as of 21 April 2026. These were using a random block design.
 
 ```{r}
 fit_mean_1 <- lmer(meandist ~ Selection + (1|PopRep), 
@@ -117,7 +197,9 @@ aictab(cand.set = list(fit_mean_1, fit_mean_2, fit_mean_3, fit_mean_4, fit_mean_
 
 ```
 
-## Check AIC scores of models using dredge function
+#### OLD: Check AIC scores of models using dredge function
+
+Unused as of 9 June 2026. Dredge function is less optimal than selecting models, due to brute-force variable selection which increases risk of overfitting.
 
 ```{r}
 options(na.action = "na.fail") # required for dredge function
