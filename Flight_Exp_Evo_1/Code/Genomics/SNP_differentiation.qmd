@@ -159,15 +159,16 @@ for(ii in 1:nrow(FF_matrix)){
   
   # quasibinomial model
   quasibinom_FFtemp <- glm(data = FF_temp,
-  Frequency ~ Treatment, 
-  family = "quasibinomial",
+  Frequency ~ Treatment,
+  family = quasibinomial(link = "logit"),
   weights = Depth)
-  
+
   quasibinom_output[ii] <- as.double(tidy(quasibinom_FFtemp)[2,5])
+
   # Arcsine squareroot transform data before fitting linear models
-  FF_temp <- FF_temp %>% 
+  FF_temp <- FF_temp %>%
     mutate(Freq_asqrt = asin(sqrt(Frequency)))
-  
+  # 
   # linear model with anova
   mod_FF_temp <- lm(data = FF_temp, 
                     Freq_asqrt ~ Treatment)
