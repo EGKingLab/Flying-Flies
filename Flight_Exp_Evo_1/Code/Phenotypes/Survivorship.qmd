@@ -24,8 +24,7 @@ theme_set(theme_cowplot())
 Imported into a tibble "Surv_data_raw" and processed into "Surv_data" which contains proportion survivorship per vial. The initial egg count for each vial was 70.
 
 ```{r}
-Surv_data_raw <- read_excel("FF_Survivorship.xlsx")
-#head(Surv_data_raw)
+Surv_data_raw <- read_excel("~/Flying_Flies_Phenotyping/Raw_data/FF_Survivorship.xlsx")
 
 Egg_count = 70 #See methods
 
@@ -35,17 +34,19 @@ Surv_data <- Surv_data %>% mutate(PopRep = paste(Selection, Replicate, sep="_"))
   mutate(VialNum = paste(PopRep, Vial, sep = "_V")) %>% 
   mutate_at(c("Selection", "PopRep", "VialNum"), factor)
 
-# Remove anomalous points (greater than 70 Egg collection, or very early F2 eclosion)
+# Remove anomalous points (greater than 70 Egg collection, or very early F2 eclosion). Drop NA values.
 
-Surv_data <- Surv_data %>% filter(Surv < 1)
+Surv_data <- Surv_data %>% filter(Surv < 1) %>% drop_na()
 ```
 
 #### Analysis
 
-NOTE: Transformation necessary?
+On arc sine square root transformed survivorship.
 
 ```{r}
-fit_surv1 <- lmer(Surv ~ Selection + (1|PopRep), data = Surv_data)
+Surv_data <- Surv_data %>% mutate(asqrt_Surv = asin(sqrt(Surv)))
+
+fit_surv1 <- lmer(asqrt_Surv ~ Selection + (1|PopRep), data = Surv_data)
 #fit_surv2 <- lmer(Surv ~ Selection + (1|PopRep) + (1|VialNum), data = Surv_data) #this leads to an error due to no replication for nested vial IDs. 
 
 anova(fit_surv1)
@@ -54,5 +55,14 @@ anova(fit_surv1)
 ### Plots
 
 ```{r}
-ggplot(data = Surv_data, aes(x = Selection, y = Surv)) + geom_boxplot(outlier.shape = NA) + geom_point(aes(shape = factor(Replicate)), position = position_jitter(width = 0.1), size = 1.5, color = "steelblue") + ylim(0.75, 1) + stat_summary(fun = "mean", color = "red", shape = "-", size = 4) 
+surv_plot <- ggplot(data = Surv_data, aes(x = Selection, y = Surv)) + geom_boxplot(outlier.shape = NA) + geom_point(aes(shape = factor(Replicate)), position = position_jitter(width = 0.1), size = 1.5, color = "steelblue") + stat_summary(fun = "mean", color = "red", shape = "-", size = 4) +
+  labs(x = "Selection", y = "Egg-to-adult Survivorship")
+
+print(surv_plot)
+```
+
+#### Save survivorship plot
+
+```{r}
+ggsave(surv_plot, filename = "../../Plots/surv_plot.jpeg", dpi = 400, width = 12, height = 6)
 ```
