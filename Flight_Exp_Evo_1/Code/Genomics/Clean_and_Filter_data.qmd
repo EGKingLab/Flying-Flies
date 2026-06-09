@@ -50,7 +50,11 @@ read depth: min. 20x, max. 500x (unchanged from previous implementation).
 
 allele frequency: ALL alleles at a site should be \>0.01 and \<0.99. Furthermore, all sites containing a singleton count will be removed.
 
+With this filter, 1,070,788 SNPs remained.
+
 2026-06-08: the filtering out of a SNP for ANY allele being less than 0.01 or 0.99 was thought to be too conservative. With read depth as well, the filter will be changed to ensuring that the max. value of a SNP should not be less than 20 and the min. value of a SNP should not be more than 500. Singleton filtering removed, since one singleton at a site out of 8 populations is too conservative. The allele frequency filtering should account for improbably low reads. As an addition, the sites which are found significantly differentiated based on the linear model analysis will be checked post analysis for the allele frequency and read depth distributions.
+
+With this filter, 1,360,234 SNPs remained.
 
 ```{r}
 # Remove all garbled chromosome names, as well as the 4th and Y chromosome. Set CHROM as factor for easier plotting later. Even though chromosome names have been filtered, the 'unfiltered' in the variable name here refers strictly to allele frequency and read depth. 
@@ -73,28 +77,47 @@ FF_genomes_unfiltered <-  FF_genomes_unfiltered %>%
   mutate(Population = str_remove(Population, "_.*"))
 
 # filtering out criteria: 
-# all singletons
-# read depth min 20x, max 500x
-# ref freq max > 0.01 and min < 0.99
-min_depth <- 20
-max_depth <- 500
-min_freq <- 0.01
-max_freq <- 0.99
+# read depth max at a site of 20x, min of a site of 500x
+# ref freq avg. at a site > 0.01 and  < 0.99
+maxsite_depth <- 20
+minsite_depth <- 500
+min_avgfreq <- 0.01
+max_avgfreq <- 0.99
 
 # Pre-filter diagnostics
-FF_filter_summary <- FF_genomes_unfiltered %>% 
+FF_filter_status <- FF_genomes_unfiltered %>% 
+  group_by(CHROM, POS) %>%
   summarise(
-    total_snps = n(),
+    Nmiss_check = sum(Nmiss),
     na_freq = sum(is.na(freq_)),
     na_depth = sum(is.na(depth_)),
-    fail_singleton = sum(ref_count == 1 | ref_count == (depth_ - 1)),
-    fail_mindepth = sum(depth_ < min_depth),
-    fail_maxdepth = sum(depth_ > max_depth),
-    fail_minfreq = sum(freq_ < min_freq),
-    fail_maxfreq = sum(freq_ > max_freq),
+    fail_maxsite_depth = any(max(depth_) < maxsite_depth),
+    fail_minsitedepth = any(min(depth_) > minsite_depth),
+    fail_minfreq = any(mean(freq_) < min_avgfreq),
+    fail_maxfreq = any(mean(freq_) > max_avgfreq),
+    old_mindepth = any(depth_ < maxsite_depth),
+    old_maxdepth = any(depth_ > minsite_depth),
+    old_minfreq = any(freq_ < min_avgfreq),
+    old_maxfreq = any(freq_ > max_avgfreq),
+    fail_singleton = any(ref_count == 1 | ref_count == (depth_ - 1))
+  )
+
+FF_filter_summary <- FF_filter_status %>% 
+  summarise(
+    total_snps = n(),
+    na_freq = sum(na_freq),
+    na_depth = sum(na_depth),
+    fail_maxsite_depth = sum(fail_maxsite_depth),
+    fail_minsitedepth = sum(fail_minsitedepth),
+    fail_minfreq = sum(fail_minfreq),
+    fail_maxfreq = sum(fail_maxfreq),
+    old_mindepth = sum(old_mindepth),
+    old_maxdepth = sum(old_maxdepth),
+    old_minfreq = sum(old_minfreq),
+    old_maxfreq = sum(old_maxfreq),
+    fail_singleton = sum(fail_singleton),
     # Ensures that Nmiss has no value >0
-    Nmiss_check = sum(Nmiss),
-    .by = Population
+    Nmiss_check = sum(Nmiss_check)
   )
 
 # apply filters and convert to wide format for easier analyses. drop Nmiss.
@@ -102,12 +125,11 @@ FF_genomes_filtered <-  FF_genomes_unfiltered %>%
   select(-Nmiss) %>% 
   group_by(CHROM, POS) %>% 
   filter(!any(
-    # singleton filter
-    ref_count==1 | ref_count==(depth_-1) |
+    
     # read depth filter
-    depth_ < min_depth | depth_ > max_depth |
+    max(depth_) < maxsite_depth | min(depth_) > minsite_depth |
     # allele frequency filter
-    freq_ < min_freq | freq_ > max_freq
+    mean(freq_) < min_avgfreq | mean(freq_) > max_avgfreq
     )) %>% 
   ungroup() %>% 
   select(-ref_count) %>% 
