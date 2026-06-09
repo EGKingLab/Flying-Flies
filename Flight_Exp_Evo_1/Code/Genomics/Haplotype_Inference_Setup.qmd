@@ -62,3 +62,17 @@ for(ii in 1:nrow(combs))
 }
 
 ```
+
+For genome scan for haplotypes, run the following:
+
+```{txt}
+Rscript GenomeScan_Haplotypes.R 2L >temp1.txt 2>error1.err &
+  
+Rscript GenomeScan_Haplotypes.R 2R >temp2.txt 2>error2.err &
+  
+Rscript GenomeScan_Haplotypes.R 3L >temp3.txt 2>error3.err &
+
+Rscript GenomeScan_Haplotypes.R 3R >temp4.txt 2>error4.err &
+  
+Rscript GenomeScan_Haplotypes.R X >temp5.txt 2>error5.err &
+```

@@ -1,5 +1,6 @@
 Big_data/
 
+*.Rds
 .Rproj.user
 .Rhistory
 .RData
