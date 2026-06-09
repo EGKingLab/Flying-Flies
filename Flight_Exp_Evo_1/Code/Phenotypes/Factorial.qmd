@@ -123,7 +123,7 @@ Both eta-squared and Cohen's F (analogous to Cohen's D when there are 2 levels) 
 fit_main_reml <- lmer(meandist ~ Selection + Light_Status + Fan_Status + (1|PopRep), data = Mean_dist, REML = TRUE)
 eta_squared(fit_main_reml)
 cohens_f(fit_main_reml)
-cohens_d(fit_main_reml)
+
 ```
 
 ANOVA on selected model
