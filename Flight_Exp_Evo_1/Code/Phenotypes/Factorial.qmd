@@ -22,6 +22,7 @@ library(effectsize)
 library(glmmTMB)
 library(car)
 library(emmeans)
+library(ggeffects)
 
 theme_set(theme_cowplot())
 ```
@@ -168,14 +169,22 @@ ggsave(Mean_dist_plots, filename = "../../Plots/Fact_meandist_main.jpeg", dpi = 
 ## Zero inflated negative binomial distribution
 
 ```{r}
-Flight_zinbinom_data <- Flight_data %>% 
+Flight_data_merged <- Flight_data %>% left_join(
+  Totals, 
+  by = c("Selection", "PopReplicate", "RunSet", "Light_Status", "Fan_Status", "Vials")
+)
+
+Flight_zinbinom_data <- Flight_data_merged %>% 
   mutate(PopRep = paste(Selection, PopReplicate, sep = "_")) %>% 
   mutate(PopRep = as.factor(PopRep)) %>% 
-  select(Selection, Light_Status, Fan_Status, PopRep, ChamberNum, Fly_count)
+  mutate(log_StartFlies = log(Flies_per_run)) %>% 
+  select(Selection, Light_Status, Fan_Status, PopRep, log_StartFlies,
+         ChamberNum, Fly_count)
 
 # run zero inflated negative binomial test
 zinbinom_mod <- glmmTMB(data = Flight_zinbinom_data,
-  formula = Fly_count ~ ChamberNum * Selection * Light_Status * Fan_Status + (1|PopRep),
+  formula = Fly_count ~ ChamberNum * Selection * Light_Status * Fan_Status +
+    offset(log_StartFlies) + (1|PopRep),
   ziformula = ~ ChamberNum,
   family = nbinom2,
 )
@@ -186,6 +195,21 @@ Anova(zinbinom_mod, type = 'III')
 emslopes <- emtrends(zinbinom_mod, ~Selection * Light_Status * Fan_Status, var = "ChamberNum")
 
 summary(emslopes)
+pairs(emslopes)
+
+```
+
+#### Plot this multi-interaction data with distance as a factor
+
+```{r}
+predictions <- predict_response(zinbinom_mod,
+      terms = c("ChamberNum", "Selection", "Light_Status", "Fan_Status"),
+      bias_correction = TRUE)
+
+zinb_predict_plot <- plot(predictions) + 
+  labs(x = "Distance traversed (Chamber)", y = "Predicted counts")
+
+print(zinb_predict_plot)
 ```
 
 ==============================================================
