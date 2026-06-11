@@ -1,0 +1,10 @@
+mkdir templogs
+
+for chr in 2L 2R 3L 3R X; do
+
+  Rscript SNP_multi_loop.R "$chr" > "templogs/temp_${chr}.txt" 2>&1 &
+  
+  pid=$!
+  echo "Started Chr $chr (PID: $pid). Logs and errors: templogs/temp_${chr}.txt"
+  
+done

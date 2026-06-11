@@ -128,15 +128,137 @@ x = Position, y = -log10(adj_pvals), size = -log10(adj_pvals))) +
 print(ttest_scanplot)
 ```
 
-OLD: For each locus, fit the following models:
+### Diagnostics for multiple tests
+
+```{r}
+FF_2L <- readRDS("../../../Big_data/SNP_diff2L.RDS")
+FF_2R <- readRDS("../../../Big_data/SNP_diff2R.RDS")
+FF_3L <- readRDS("../../../Big_data/SNP_diff3L.RDS")
+FF_3R <- readRDS("../../../Big_data/SNP_diff3R.RDS")
+FF_X <- readRDS("../../../Big_data/SNP_diffX.RDS")
+
+SNPdiff_data <- bind_rows(FF_2L, FF_2R, FF_3L, FF_3R, FF_X) %>% 
+  mutate(CHROM = as.character(CHROM))
+
+Xaxis_CHROM <- SNPdiff_data %>%  
+  group_by(CHROM) %>% 
+  summarise(center = (min(POS) + max(POS))/2)
+
+SNPdiff_data$lm_adjPval <- p.adjust(SNPdiff_data$lm_Pval, method = 'fdr')
+SNPdiff_data$comp_adjPval <- p.adjust(SNPdiff_data$comp_Pval, method = 'fdr')
+SNPdiff_data$tue_adjPval <- p.adjust(SNPdiff_data$tue_Pval, method = 'fdr')
+SNPdiff_data$te_adjPval <- p.adjust(SNPdiff_data$te_Pval, method = 'fdr')
+SNPdiff_data$qb_b_adjPval <- p.adjust(SNPdiff_data$qb_b_Pval, method = 'fdr')
+SNPdiff_data$qb_w_adjPval <- p.adjust(SNPdiff_data$qb_w_Pval, method = 'fdr')
+
+
+
+plot_lm_Pval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(lm_Pval), size = -log10(lm_Pval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylab("-log10(LM: P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# lm adjusted
+plot_lm_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(LM: Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# model comp
+plot_comp_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(comp_adjPval), size = -log10(comp_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(Model Comp.: Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# t test unequal var
+plot_tue_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(tue_adjPval), size = -log10(tue_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(t-test (Welch): Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# t test equal var
+plot_te_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(te_adjPval), size = -log10(te_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(t-test(equal var.): Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+
+print(plot_lm_Pval)
+print(plot_lm_adjPval)
+print(plot_comp_adjPval)
+print(plot_tue_adjPval)
+print(plot_te_adjPval)
+
+
+
+target_SNPs <- SNPdiff_data %>% select(CHROM, POS, lm_Pval, new_adjp) %>% 
+  filter(new_adjp < 0.05)
+
+target_SNP_full <- semi_join(FF_genomes_filtered, target_SNPs)
+target_SNP_full$adjp <- target_SNPs$new_adjp
+```
+
+====================================================
+
+#### OLD: For each locus, fit the following models:
 
 i\) A linear model with default settings (normal distribution)
 
 ii\) A generalized linear model with quasibinomial distribution
 
 ```{r}
-FF_matrix_raw <- FF_genomes_filtered[, seq(5,12, by=1)]
-FF_depth <- FF_genomes_filtered[, seq(13,20, by=1)]
+
+FF_matrix_raw <- FF_genomes_filtered[1:1000, seq(5,12, by=1)]
+FF_depth <- FF_genomes_filtered[1:1000, seq(13,20, by=1)]
 
 FF_matrix <- as.matrix(FF_matrix_raw)
 FF_depth <- as.matrix(FF_depth)
@@ -188,14 +310,24 @@ for(ii in 1:nrow(FF_matrix)){
   }
 }
 
-FF_results <- FF_genomes_filtered[, c(1, 2)] %>% 
+FF_results <- FF_genomes_filtered[1:1000, c(1, 2)] %>% 
              mutate(CHROM = fct_drop(CHROM))
 
+FF_results$lm_Pval <- linear_output
 FF_results$lm_adjPval <- p.adjust(linear_output, method = "fdr")
+FF_results$lm_postadj <- p.adjust(FF_results$lm_Pval, method = "fdr")
+
+FF_results$t_Pval <- p.adjust(ttest_output, method = "fdr")
 FF_results$t_adjPval <- p.adjust(ttest_output, method = "fdr")
+FF_results$t_postadj <- p.adjust(ttest_output, method = "fdr")
+
+FF_results$qb_Pval <- p.adjust(quasibinom_output, method = "fdr")
 FF_results$qb_adjPval <- p.adjust(quasibinom_output, method = "fdr")
+FF_results$qb_postadj <- p.adjust(quasibinom_output, method = "fdr")
 
 ```
+
+#### Old Scanplot
 
 ```{r}
 X_CHROM <- FF_results %>% group_by(CHROM) %>% summarise(center = (min(POS) + max(POS))/2)
@@ -217,5 +349,3 @@ x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
 
 print(scanplot)
 ```
-
-## 
