@@ -20,15 +20,15 @@ FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
 ## Process data for grenedalf
 
 ```{r}
-FF_grene_process <- FF_genomes_filtered %>% 
-  select(-Nmiss, -REF, -ALT, -min_depth, -max_depth, -mean_freq) %>% rename_with(
+FF_grene_process <- FF_genomes_filtered #%>% 
+  # select(-REF, -ALT) %>% rename_with(
     # Removes all text after the second underscore,
     # used to remove _G13_sample...
     # this leaves freq_CON1, N_CON1, and so on.
-  ~str_replace(., "^([^_]+_[^_]+)_.*$", "\\1"),
+  #~str_replace(., "^([^_]+_[^_]+)_.*$", "\\1"),
   # exlude CHROM and POS columns for this rule
-  .cols = !c(CHROM, POS)
-  )
+  #.cols = !c(CHROM, POS)
+  #)
 
 ```
 
@@ -113,6 +113,22 @@ thetapi_scan <- ggplot(data = FF_thetapi, aes(
   
 print(thetapi_box)
 print(thetapi_scan)
+```
+
+### t-test of gene diversity per SNP and scanplot of p-values
+
+```{r}
+FF_thetapi_test <- FF_thetapi %>% mutate("mid" = (1 + end)/2) %>% 
+  unite("wind_ID", chrom, mid, sep = "_", remove = TRUE) %>% select(-start, -end)
+
+thetapi_models <- FF_thetapi_test %>% 
+  group_by(wind_ID) %>% reframe(
+    tidy(anova(lm(theta_pi ~ Selection, data = pick(everything())))),
+  ) %>% filter(term == "Selection")
+
+thetapi_models$adjP <- p.adjust(thetapi_models$p.value, method = 'fdr')
+
+boxplot((thetapi_models$adjP))
 ```
 
 ## Run grenedalf for population-pairwise Fst calculation
