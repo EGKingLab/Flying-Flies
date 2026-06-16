@@ -11,6 +11,8 @@ editor: visual
 ```{r}
 library(tidyverse)
 library(cowplot)
+library(emmeans)
+library(broom)
 
 theme_set(theme_cowplot())
 
@@ -358,10 +360,14 @@ FF_FstHudson <- FF_FstHudson %>% pivot_longer(
   names_pattern = "(.*?):(.*?)\\.(.*)"
 )
 
+# Remove any negative Fst values generated due to combinations of very low read depth reads and high allele frequency differences.
+FF_FstHudson <- FF_FstHudson %>% filter(fst >= 0)
+
+# if warning appears, it may be due to some SNPs not being passed (check missing or numeric columns in data). This would be due to the singleton/min.read depth filters applied in input.
 if (identical(FF_FstHudson$total.passed, FF_FstHudson$passed)){
   FF_FstHudson <- FF_FstHudson %>% select(-total.passed)
 } else {
-  stop("Mismatch between passed values (total vs. specific comparison")
+  warning("Mismatch between passed values (total vs. specific comparison")
 }
 
 FF_FstHudson <- FF_FstHudson %>% 
@@ -500,7 +506,7 @@ FstHudsonFPALL_scan <- FF_FstHudson %>%
   geom_point(alpha = 0.5) +
   labs(
     x = "Window (100kb) Start Position",
-    y = "Fst (Hudson)"
+    y = "Fst (Hudson) FP vs. CON"
   ) +
   theme(
     axis.text.x = element_blank(),
@@ -521,4 +527,75 @@ FstHudson_boxplot <- FF_FstHudson %>%
                aes(label = after_stat(round(y, 4))), color = "red")
 
 print(FstHudson_boxplot)
+```
+
+### linear model for fst comparisons (CON vs FP) and (CON vs CON)
+
+```{r}
+FstH_testdata <- FF_FstHudson %>% mutate("mid" = (1 + end)/2) %>% 
+  unite("wind_ID", chrom, mid, sep = "_", remove = TRUE) %>% select(-start, -end)
+
+
+FstH_lm <- FstH_testdata %>% 
+  group_by(wind_ID) %>% reframe(
+    tidy(anova(lm(fst ~ Comparison, data = pick(everything())))),
+  ) %>% filter(term == "Comparison")
+
+FstH_lm$adjP <- p.adjust(FstH_lm$p.value, method = 'fdr')
+
+boxplot(FstH_lm$adjP)
+
+```
+
+#### Tukey's post-hoc test
+
+```{r}
+FstH_lmsig <- FstH_lm %>% filter(adjP < 0.05)
+
+FstH_tukey <- FstH_testdata %>% semi_join(FstH_lmsig, by = "wind_ID")
+
+sigsites <- unique(FstH_lmsig$wind_ID)
+pvals <- FstH_lmsig$p.value
+
+tukeyres <- list()
+
+for(ss in sigsites){
+  tempdata <- FstH_tukey %>% 
+    filter(wind_ID == ss)
+  
+  temp_model <- lm(fst ~ Comparison, data = tempdata)
+  
+  temp_emmeans <- pairs(emmeans(temp_model, specs = ~Comparison, adjust = "tukey"))
+  
+  temp_emmeans <- tidy(temp_emmeans) %>% mutate(wind_ID = ss, .before = 1)
+  
+  tukeyres[[ss]] <- temp_emmeans
+}
+
+tukeyres <- bind_rows(tukeyres)
+tukeyres <- tukeyres %>% select(wind_ID, contrast, adj.p.value)
+```
+
+#### Scanplot of p-values with Fst comparisons
+
+```{r}
+# Combine tibbles containing tukey pval with overall lm p val
+Pvalscandata <- FstH_lm %>% select(wind_ID, adjP) %>% 
+  left_join(tukeyres, by = "wind_ID") %>% 
+  rename(pTukey = adj.p.value) %>% 
+  mutate(sig_contrast = if_else(pTukey < 0.05, contrast, NA_character_)) %>%
+  mutate(sig_contrast = replace_na(sig_contrast, "NotSignificant")) %>% 
+  separate_wider_delim(
+    cols = wind_ID,
+    delim = "_",
+    names = c("chromosome", "midwindow")) 
+
+ScanCvFnCvC <- Pvalscandata %>% filter(
+  sig_contrast == "CONvsCON - CONvsFP") %>% 
+  ggplot(aes(x = midwindow, y = -log10(adjP), color = sig_contrast)) +
+  facet_grid(. ~ chromosome) +
+  geom_point(alpha = 0.5) +
+  theme(axis.text.x = element_blank(), legend.position = "bottom")
+
+print(ScanCvFnCvC)
 ```
