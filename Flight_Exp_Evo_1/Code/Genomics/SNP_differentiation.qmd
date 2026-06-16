@@ -99,7 +99,7 @@ FF_ttestres <- p_vals %>% as_tibble(rownames = "SNP_ID") %>%
   separate_wider_delim(
     cols = SNP_ID,
     delim = "_",
-    names = c("Chromosome", "Position"),
+    names = c("Chromosome", "Position")
   ) %>% rename(P_vals = value) %>% mutate(Position = as.numeric(Position))
 
 
