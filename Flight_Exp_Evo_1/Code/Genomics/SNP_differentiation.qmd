@@ -22,7 +22,364 @@ FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
 
 ## Linear models
 
-### Manual t test calculation
+### Plotting results from multiple tests
+
+Note: model comparison analysis P values (comp_Pval) is NA when lm_Pval is 1. This occurs when the two groups being compared have the same mean and same variance.
+
+```{r}
+FF_2L <- readRDS("../../../Big_data/SNP_diff2L.RDS")
+FF_2R <- readRDS("../../../Big_data/SNP_diff2R.RDS")
+FF_3L <- readRDS("../../../Big_data/SNP_diff3L.RDS")
+FF_3R <- readRDS("../../../Big_data/SNP_diff3R.RDS")
+FF_X <- readRDS("../../../Big_data/SNP_diffX.RDS")
+
+SNPdiff_data <- bind_rows(FF_2L, FF_2R, FF_3L, FF_3R, FF_X) %>% 
+  mutate(CHROM = as.character(CHROM))
+
+Xaxis_CHROM <- SNPdiff_data %>%  
+  group_by(CHROM) %>% 
+  summarise(center = (min(POS) + max(POS))/2)
+
+SNPdiff_data$lm_adjPval <- p.adjust(SNPdiff_data$lm_Pval, method = 'fdr')
+SNPdiff_data$comp_adjPval <- p.adjust(SNPdiff_data$comp_Pval, method = 'fdr')
+SNPdiff_data$tue_adjPval <- p.adjust(SNPdiff_data$tue_Pval, method = 'fdr')
+SNPdiff_data$te_adjPval <- p.adjust(SNPdiff_data$te_Pval, method = 'fdr')
+SNPdiff_data$qb_b_adjPval <- p.adjust(SNPdiff_data$qb_b_Pval, method = 'fdr')
+SNPdiff_data$qb_w_adjPval <- p.adjust(SNPdiff_data$qb_w_Pval, method = 'fdr')
+
+
+
+plot_lm_Pval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(lm_Pval), size = -log10(lm_Pval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylab("-log10(LM: P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# lm adjusted
+plot_lm_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(LM: Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# model comp
+plot_comp_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(comp_adjPval), size = -log10(comp_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(Model Comp.: Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# t test unequal var
+plot_tue_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(tue_adjPval), size = -log10(tue_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(t-test (Welch): Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# t test equal var
+plot_te_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(te_adjPval), size = -log10(te_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(t-test(equal var.): Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# Quasibinomial with weights (P values)
+plot_qb_w_Pval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(qb_w_Pval), size = -log10(qb_w_Pval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylab("-log10(Quasibinomial (with weights): P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+# Quasibinomial with weights (adjusted P values)
+plot_qb_w_adjPval <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(qb_w_adjPval), size = -log10(qb_w_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  ylab("-log10(Quasibinomial (with weights): Adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+print(plot_lm_Pval)
+print(plot_lm_adjPval)
+print(plot_comp_adjPval)
+print(plot_tue_adjPval)
+print(plot_te_adjPval)
+print(plot_qb_w_Pval)
+print(plot_qb_w_adjPval)
+
+```
+
+#### Linear model: Plot P-values, read depth and allele frequency for target SNPs
+
+```{r}
+target_SNPs <- SNPdiff_data %>% filter(lm_adjPval < 0.05) 
+
+target_SNPs_pvals <- target_SNPs %>% 
+  mutate("SNP_ID" = paste0(CHROM, POS, sep = '_')) %>% 
+  pivot_longer(cols = 2:13,
+               names_to = "Res", values_to = "Pval") %>% 
+  mutate("logPval" = -log10(Pval))
+
+
+
+target_SNP_full <- semi_join(FF_genomes_filtered, target_SNPs)
+
+target_SNP_full <- full_join(target_SNP_full, target_SNPs)
+
+target_SNP_full <- target_SNP_full %>%
+  select(-REF, -ALT) %>% 
+  mutate("SNP_ID" = paste0(CHROM, POS, sep = '_')) %>% 
+  pivot_longer(
+  cols = c(starts_with('freq_'), starts_with('depth_')),
+  names_to = c(".value", "Population"),
+  names_pattern = "(freq|depth)_(.*)"
+  ) %>% separate_wider_regex(
+    cols = Population,
+    patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")
+    ) %>% 
+  mutate_at(c("Selection", "PopReplicate"), factor)
+
+SNPfreq_segments <- target_SNP_full %>% 
+  group_by(SNP_ID, Selection, CHROM, POS) %>% 
+  summarise(mSelfreq = mean(freq), .groups = "drop") %>% 
+  pivot_wider(names_from = Selection, values_from = mSelfreq) %>% 
+  mutate(selmin = pmin(CON, FP), selmax = pmax(CON, FP))
+
+SNPdepth_segments <- target_SNP_full %>% 
+  group_by(SNP_ID, Selection, CHROM, POS) %>% 
+  summarise(mSeldepth = mean(depth), .groups = "drop") %>% 
+  pivot_wider(names_from = Selection, values_from = mSeldepth) %>% 
+  mutate(selmin = pmin(CON, FP), selmax = pmax(CON, FP))
+
+
+# P values of different analyses
+tSNP_resplot <- target_SNPs_pvals %>% filter(str_detect(Res, "adj")) %>% 
+  ggplot(aes(y = logPval, x = SNP_ID, color = Res)) +
+                facet_wrap(~ Res, nrow = 2, ncol = 3) +
+                geom_point(alpha = 0.5) + 
+  geom_hline(yintercept = -log10(0.05), color = 'red', linetype = 'dotted')+
+  theme(axis.text.x = element_blank(), legend.position = "none")
+
+
+# Read depth plot
+depth_tSNP_plt <- ggplot() +
+  geom_point(data = target_SNP_full, aes(
+    x = SNP_ID, y = depth, color = Selection, shape = PopReplicate), 
+    alpha = 0.1) +
+  geom_segment(data = SNPdepth_segments, aes(
+    x = SNP_ID, xend = SNP_ID, y = selmin, yend = selmax), 
+    color = 'gray30', linewidth = 0.5, alpha = 0.8) +
+  facet_grid(.~CHROM, scales = "free_x", space = "free_x") +
+  stat_summary(data = target_SNP_full, aes(
+    x = SNP_ID, y = depth, color = Selection), 
+    fun = mean, size = 1.5, shape = '-') +
+   geom_hline(yintercept = 20, color = 'red', linetype = 'dotted') +
+  scale_y_continuous(breaks = seq(0, 160, by = 20)) +
+  theme(axis.text.x = element_blank(),
+  panel.background = element_rect(fill = 'grey98'),
+  panel.spacing = unit(0.1, "lines")) +
+  labs(y = "Total read depth", x = "SNP_ID")
+
+# Frequency plot
+freq_tSNP_plt <- ggplot() +
+  geom_point(data = target_SNP_full, aes(
+    x = SNP_ID, y = freq, color = Selection, shape = PopReplicate), 
+    alpha = 0.1) +
+  geom_segment(data = SNPfreq_segments, aes(
+    x = SNP_ID, xend = SNP_ID, y = selmin, yend = selmax), 
+    color = 'gray30', linewidth = 0.5, alpha = 0.8) +
+  facet_grid(.~CHROM, scales = "free_x", space = "free_x") +
+  stat_summary(data = target_SNP_full, aes(
+    x = SNP_ID, y = freq, color = Selection), 
+    fun = mean, size = 1.5, shape = '-') +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
+  theme(axis.text.x = element_blank(),
+  panel.grid.major.y = element_line(color = 'lightgray', linewidth = 0.5, linetype = 'dotted'),
+  panel.background = element_rect(fill = 'grey98'),
+  panel.spacing = unit(0.1, "lines")) +
+  labs(y = "Reference allele frequency", x = "SNP_ID")
+
+freq_depth_scatter <- ggplot() +
+  geom_point(data = target_SNP_full, aes(
+    x = freq, y = depth, color = Selection, shape = PopReplicate)) + 
+  geom_hline(yintercept = 20, color = 'red', linetype = 'dotted')
+
+print(freq_depth_scatter)
+
+print(tSNP_resplot)
+print(depth_tSNP_plt)
+print(freq_tSNP_plt)
+```
+
+#### Save target SNPs
+
+```{r}
+saveRDS(target_SNPs,
+        file = "../../../Big_data/lm_targetSNPs.RDS")
+```
+
+====================================================
+
+#### OLD: For each locus, fit the following models:
+
+i\) A linear model with default settings (normal distribution)
+
+ii\) A generalized linear model with quasibinomial distribution
+
+```{r}
+
+FF_matrix_raw <- FF_genomes_filtered[1:1000, seq(5,12, by=1)]
+FF_depth <- FF_genomes_filtered[1:1000, seq(13,20, by=1)]
+
+FF_matrix <- as.matrix(FF_matrix_raw)
+FF_depth <- as.matrix(FF_depth)
+
+linear_output <- numeric(length = nrow(FF_matrix))
+
+ttest_output <- numeric(length = nrow(FF_matrix))
+
+quasibinom_output <- numeric(length = nrow(FF_matrix))
+
+perc_tracker <- round(nrow(FF_matrix) * 0.05)
+
+paste0("Progress: START")
+
+for(ii in 1:nrow(FF_matrix)){
+  FF_temp <- data.frame(
+    "Treatment" = rep(c("CON","FP"), each = 4), 
+    "Frequency" = FF_matrix[ii,],
+    "Depth" = FF_depth[ii,])
+  
+  # quasibinomial model
+  quasibinom_FFtemp <- glm(data = FF_temp,
+  Frequency ~ Treatment,
+  family = quasibinomial(link = "logit"),
+  weights = Depth)
+
+  quasibinom_output[ii] <- as.double(tidy(quasibinom_FFtemp)[2,5])
+
+  # Arcsine squareroot transform data before fitting linear models
+  FF_temp <- FF_temp %>%
+    mutate(Freq_asqrt = asin(sqrt(Frequency)))
+  # 
+  # linear model with anova
+  mod_FF_temp <- lm(data = FF_temp, 
+                    Freq_asqrt ~ Treatment)
+  mod_FF_temp <- anova(mod_FF_temp)
+  linear_output[ii] <- mod_FF_temp$`Pr(>F)`[1]
+  
+  # t test
+  ttest_FFtemp <- t.test(data = FF_temp, 
+                         Freq_asqrt ~ Treatment, var.equal = TRUE)
+  ttest_output[ii] <- ttest_FFtemp$p.value
+  
+  
+  
+  if (ii %% perc_tracker == 0){
+    current_per <- (ii/nrow(FF_matrix) * 100)
+    cat("Progress: ", current_per, "%\n")
+  }
+}
+
+FF_results <- FF_genomes_filtered[1:1000, c(1, 2)] %>% 
+             mutate(CHROM = fct_drop(CHROM))
+
+FF_results$lm_Pval <- linear_output
+FF_results$lm_adjPval <- p.adjust(linear_output, method = "fdr")
+FF_results$lm_postadj <- p.adjust(FF_results$lm_Pval, method = "fdr")
+
+FF_results$t_Pval <- p.adjust(ttest_output, method = "fdr")
+FF_results$t_adjPval <- p.adjust(ttest_output, method = "fdr")
+FF_results$t_postadj <- p.adjust(ttest_output, method = "fdr")
+
+FF_results$qb_Pval <- p.adjust(quasibinom_output, method = "fdr")
+FF_results$qb_adjPval <- p.adjust(quasibinom_output, method = "fdr")
+FF_results$qb_postadj <- p.adjust(quasibinom_output, method = "fdr")
+
+```
+
+#### Old Scanplot
+
+```{r}
+X_CHROM <- FF_results %>% group_by(CHROM) %>% summarise(center = (min(POS) + max(POS))/2)
+
+scanplot <- ggplot(data = FF_results, aes(
+x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
+  facet_grid(.~ CHROM) +
+  geom_point(aes(color = CHROM), alpha = 0.5) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(X_CHROM$CHROM))) +
+  ylim(c(0, 3)) +
+  ylab("-log10(FDR adjusted P Value)") +
+  xlab("Position") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+    theme(axis.text.x = element_blank(), legend.position = 'none')
+
+print(scanplot)
+```
+
+### OLD: Manual t test calculation
 
 Manually calculate t-test via matrix calculations.
 
@@ -128,314 +485,4 @@ x = Position, y = -log10(adj_pvals), size = -log10(adj_pvals))) +
 print(ttest_scanplot)
 ```
 
-### Diagnostics for multiple tests
-
-Note: model comparison analysis P values (comp_Pval) is NA when lm_Pval is 1. This occurs when the two groups being compared have the same mean and same variance.
-
-```{r}
-FF_2L <- readRDS("../../../Big_data/SNP_diff2L.RDS")
-FF_2R <- readRDS("../../../Big_data/SNP_diff2R.RDS")
-FF_3L <- readRDS("../../../Big_data/SNP_diff3L.RDS")
-FF_3R <- readRDS("../../../Big_data/SNP_diff3R.RDS")
-FF_X <- readRDS("../../../Big_data/SNP_diffX.RDS")
-
-SNPdiff_data <- bind_rows(FF_2L, FF_2R, FF_3L, FF_3R, FF_X) %>% 
-  mutate(CHROM = as.character(CHROM))
-
-Xaxis_CHROM <- SNPdiff_data %>%  
-  group_by(CHROM) %>% 
-  summarise(center = (min(POS) + max(POS))/2)
-
-SNPdiff_data$lm_adjPval <- p.adjust(SNPdiff_data$lm_Pval, method = 'fdr')
-SNPdiff_data$comp_adjPval <- p.adjust(SNPdiff_data$comp_Pval, method = 'fdr')
-SNPdiff_data$tue_adjPval <- p.adjust(SNPdiff_data$tue_Pval, method = 'fdr')
-SNPdiff_data$te_adjPval <- p.adjust(SNPdiff_data$te_Pval, method = 'fdr')
-SNPdiff_data$qb_b_adjPval <- p.adjust(SNPdiff_data$qb_b_Pval, method = 'fdr')
-SNPdiff_data$qb_w_adjPval <- p.adjust(SNPdiff_data$qb_w_Pval, method = 'fdr')
-
-
-
-plot_lm_Pval <- ggplot(data = SNPdiff_data, aes(
-x = POS, y = -log10(lm_Pval), size = -log10(lm_Pval))) +
-  facet_grid(.~ CHROM) +
-  geom_point(aes(color = CHROM), alpha = 0.5) +
-  scale_size_area(max_size = 3) +
-  scale_color_manual(
-  values = rep(c("steelblue3", "skyblue"), 
-               length(Xaxis_CHROM$CHROM))) +
-  ylab("-log10(LM: P Value)") +
-  xlab("Position") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
-  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
-    theme(axis.text.x = element_blank(), legend.position = 'none')
-
-# lm adjusted
-plot_lm_adjPval <- ggplot(data = SNPdiff_data, aes(
-x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
-  facet_grid(.~ CHROM) +
-  geom_point(aes(color = CHROM), alpha = 0.5) +
-  scale_size_area(max_size = 3) +
-  scale_color_manual(
-  values = rep(c("steelblue3", "skyblue"), 
-               length(Xaxis_CHROM$CHROM))) +
-  ylim(c(0, 3)) +
-  ylab("-log10(LM: Adjusted P Value)") +
-  xlab("Position") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
-  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
-    theme(axis.text.x = element_blank(), legend.position = 'none')
-
-# model comp
-plot_comp_adjPval <- ggplot(data = SNPdiff_data, aes(
-x = POS, y = -log10(comp_adjPval), size = -log10(comp_adjPval))) +
-  facet_grid(.~ CHROM) +
-  geom_point(aes(color = CHROM), alpha = 0.5) +
-  scale_size_area(max_size = 3) +
-  scale_color_manual(
-  values = rep(c("steelblue3", "skyblue"), 
-               length(Xaxis_CHROM$CHROM))) +
-  ylim(c(0, 3)) +
-  ylab("-log10(Model Comp.: Adjusted P Value)") +
-  xlab("Position") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
-  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
-    theme(axis.text.x = element_blank(), legend.position = 'none')
-
-# t test unequal var
-plot_tue_adjPval <- ggplot(data = SNPdiff_data, aes(
-x = POS, y = -log10(tue_adjPval), size = -log10(tue_adjPval))) +
-  facet_grid(.~ CHROM) +
-  geom_point(aes(color = CHROM), alpha = 0.5) +
-  scale_size_area(max_size = 3) +
-  scale_color_manual(
-  values = rep(c("steelblue3", "skyblue"), 
-               length(Xaxis_CHROM$CHROM))) +
-  ylim(c(0, 3)) +
-  ylab("-log10(t-test (Welch): Adjusted P Value)") +
-  xlab("Position") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
-  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
-    theme(axis.text.x = element_blank(), legend.position = 'none')
-
-# t test equal var
-plot_te_adjPval <- ggplot(data = SNPdiff_data, aes(
-x = POS, y = -log10(te_adjPval), size = -log10(te_adjPval))) +
-  facet_grid(.~ CHROM) +
-  geom_point(aes(color = CHROM), alpha = 0.5) +
-  scale_size_area(max_size = 3) +
-  scale_color_manual(
-  values = rep(c("steelblue3", "skyblue"), 
-               length(Xaxis_CHROM$CHROM))) +
-  ylim(c(0, 3)) +
-  ylab("-log10(t-test(equal var.): Adjusted P Value)") +
-  xlab("Position") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
-  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
-    theme(axis.text.x = element_blank(), legend.position = 'none')
-
-
-print(plot_lm_Pval)
-print(plot_lm_adjPval)
-print(plot_comp_adjPval)
-print(plot_tue_adjPval)
-print(plot_te_adjPval)
-
-```
-
-#### Plot P values, read depth and allele frequency for target SNPs
-
-```{r}
-target_SNPs <- SNPdiff_data %>% filter(lm_adjPval < 0.05) 
-
-target_SNPs_pvals <- target_SNPs %>% 
-  unite("SNP_ID", CHROM, POS, sep = '_', remove = TRUE) %>% 
-  pivot_longer(cols = 2:13,
-               names_to = "Res", values_to = "Pval") %>% 
-  mutate("logPval" = -log10(Pval))
-
-
-
-target_SNP_full <- semi_join(FF_genomes_filtered, target_SNPs)
-
-target_SNP_full <- full_join(target_SNP_full, target_SNPs)
-
-target_SNP_full <- target_SNP_full %>%
-  select(-REF, -ALT) %>% 
-  unite("SNP_ID", CHROM, POS, sep = '_', remove = TRUE) %>% 
-  pivot_longer(
-  cols = c(starts_with('freq_'), starts_with('depth_')),
-  names_to = c(".value", "Population"),
-  names_pattern = "(freq|depth)_(.*)"
-  ) %>% separate_wider_regex(
-    cols = Population,
-    patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")
-    ) %>% 
-  mutate_at(c("Selection", "PopReplicate"), factor)
-
-SNPfreq_segments <- target_SNP_full %>% 
-  group_by(SNP_ID, Selection) %>% 
-  summarise(mSelfreq = mean(freq), .groups = "drop") %>% 
-  pivot_wider(names_from = Selection, values_from = mSelfreq) %>% 
-  mutate(selmin = pmin(CON, FP), selmax = pmax(CON, FP))
-
-SNPdepth_segments <- target_SNP_full %>% 
-  group_by(SNP_ID, Selection) %>% 
-  summarise(mSeldepth = mean(depth), .groups = "drop") %>% 
-  pivot_wider(names_from = Selection, values_from = mSeldepth) %>% 
-  mutate(selmin = pmin(CON, FP), selmax = pmax(CON, FP))
-
-
-# P values of different analyses
-tSNP_resplot <- target_SNPs_pvals %>% filter(str_detect(Res, "adj")) %>% 
-  ggplot(aes(y = logPval, x = SNP_ID, color = Res)) +
-                facet_wrap(~ Res, nrow = 2, ncol = 3) +
-                geom_point(alpha = 0.5) + 
-  geom_hline(yintercept = -log10(0.05), color = 'red', linetype = 'dotted')+
-  theme(axis.text.x = element_blank(), legend.position = "none")
-
-
-# Read depth plot
-depth_tSNP_plt <- ggplot() +
-  geom_point(data = target_SNP_full, aes(
-    x = SNP_ID, y = depth, color = Selection, shape = PopReplicate), 
-    alpha = 0.1) +
-  geom_segment(data = SNPdepth_segments, aes(
-    x = SNP_ID, xend = SNP_ID, y = selmin, yend = selmax), 
-    color = 'gray30', linewidth = 0.5, alpha = 0.8) +
-  stat_summary(data = target_SNP_full, aes(
-    x = SNP_ID, y = depth, color = Selection), 
-    fun = mean, size = 1.5, shape = '-') +
-   geom_hline(yintercept = 20, color = 'red', linetype = 'dotted') +
-  scale_y_continuous(breaks = seq(0, 160, by = 20)) +
-  theme(axis.text.x = element_blank()) +
-  labs(y = "Total read depth", x = "SNP_ID")
-
-# Frequency plot
-freq_tSNP_plt <- ggplot() +
-  geom_point(data = target_SNP_full, aes(
-    x = SNP_ID, y = freq, color = Selection, shape = PopReplicate), 
-    alpha = 0.1) +
-  geom_segment(data = SNPfreq_segments, aes(
-    x = SNP_ID, xend = SNP_ID, y = selmin, yend = selmax), 
-    color = 'gray30', linewidth = 0.5, alpha = 0.8) +
-  stat_summary(data = target_SNP_full, aes(
-    x = SNP_ID, y = freq, color = Selection), 
-    fun = mean, size = 1.5, shape = '-') +
-  scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
-  theme(axis.text.x = element_blank(),
-  panel.grid.major.y = element_line(color = 'lightgray', linewidth = 0.5, linetype = 'dotted')) +
-  labs(y = "Reference allele frequency", x = "SNP_ID")
-
-freq_depth_scatter <- ggplot() +
-  geom_point(data = target_SNP_full, aes(
-    x = freq, y = depth, color = Selection, shape = PopReplicate))
-
-print(freq_depth_scatter)
-
-print(tSNP_resplot)
-print(depth_tSNP_plt)
-print(freq_tSNP_plt)
-```
-
-====================================================
-
-#### OLD: For each locus, fit the following models:
-
-i\) A linear model with default settings (normal distribution)
-
-ii\) A generalized linear model with quasibinomial distribution
-
-```{r}
-
-FF_matrix_raw <- FF_genomes_filtered[1:1000, seq(5,12, by=1)]
-FF_depth <- FF_genomes_filtered[1:1000, seq(13,20, by=1)]
-
-FF_matrix <- as.matrix(FF_matrix_raw)
-FF_depth <- as.matrix(FF_depth)
-
-linear_output <- numeric(length = nrow(FF_matrix))
-
-ttest_output <- numeric(length = nrow(FF_matrix))
-
-quasibinom_output <- numeric(length = nrow(FF_matrix))
-
-perc_tracker <- round(nrow(FF_matrix) * 0.05)
-
-paste0("Progress: START")
-
-for(ii in 1:nrow(FF_matrix)){
-  FF_temp <- data.frame(
-    "Treatment" = rep(c("CON","FP"), each = 4), 
-    "Frequency" = FF_matrix[ii,],
-    "Depth" = FF_depth[ii,])
-  
-  # quasibinomial model
-  quasibinom_FFtemp <- glm(data = FF_temp,
-  Frequency ~ Treatment,
-  family = quasibinomial(link = "logit"),
-  weights = Depth)
-
-  quasibinom_output[ii] <- as.double(tidy(quasibinom_FFtemp)[2,5])
-
-  # Arcsine squareroot transform data before fitting linear models
-  FF_temp <- FF_temp %>%
-    mutate(Freq_asqrt = asin(sqrt(Frequency)))
-  # 
-  # linear model with anova
-  mod_FF_temp <- lm(data = FF_temp, 
-                    Freq_asqrt ~ Treatment)
-  mod_FF_temp <- anova(mod_FF_temp)
-  linear_output[ii] <- mod_FF_temp$`Pr(>F)`[1]
-  
-  # t test
-  ttest_FFtemp <- t.test(data = FF_temp, 
-                         Freq_asqrt ~ Treatment, var.equal = TRUE)
-  ttest_output[ii] <- ttest_FFtemp$p.value
-  
-  
-  
-  if (ii %% perc_tracker == 0){
-    current_per <- (ii/nrow(FF_matrix) * 100)
-    cat("Progress: ", current_per, "%\n")
-  }
-}
-
-FF_results <- FF_genomes_filtered[1:1000, c(1, 2)] %>% 
-             mutate(CHROM = fct_drop(CHROM))
-
-FF_results$lm_Pval <- linear_output
-FF_results$lm_adjPval <- p.adjust(linear_output, method = "fdr")
-FF_results$lm_postadj <- p.adjust(FF_results$lm_Pval, method = "fdr")
-
-FF_results$t_Pval <- p.adjust(ttest_output, method = "fdr")
-FF_results$t_adjPval <- p.adjust(ttest_output, method = "fdr")
-FF_results$t_postadj <- p.adjust(ttest_output, method = "fdr")
-
-FF_results$qb_Pval <- p.adjust(quasibinom_output, method = "fdr")
-FF_results$qb_adjPval <- p.adjust(quasibinom_output, method = "fdr")
-FF_results$qb_postadj <- p.adjust(quasibinom_output, method = "fdr")
-
-```
-
-#### Old Scanplot
-
-```{r}
-X_CHROM <- FF_results %>% group_by(CHROM) %>% summarise(center = (min(POS) + max(POS))/2)
-
-scanplot <- ggplot(data = FF_results, aes(
-x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
-  facet_grid(.~ CHROM) +
-  geom_point(aes(color = CHROM), alpha = 0.5) +
-  scale_size_area(max_size = 3) +
-  scale_color_manual(
-  values = rep(c("steelblue3", "skyblue"), 
-               length(X_CHROM$CHROM))) +
-  ylim(c(0, 3)) +
-  ylab("-log10(FDR adjusted P Value)") +
-  xlab("Position") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
-  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
-    theme(axis.text.x = element_blank(), legend.position = 'none')
-
-print(scanplot)
-```
+### 
