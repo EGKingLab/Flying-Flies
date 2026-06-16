@@ -137,176 +137,7 @@ boxplot((thetapi_models$adjP))
 
 Hudson's 1992 method of Fst estimation is applied alongside Nei's 1973 Fst estimation. The grenedalf authors cite Bhatia et al. 2013 (Genome Res.) to recommend Hudson's estimator.
 
-### Fst Nei estimator
-
-```{r}
-gdalf_fst_nei_path <- "../../../Big_data/grenedalf_fstnei_out"
-
-unlink(gdalf_fst_nei_path, recursive = TRUE)
-
-dir.create(gdalf_fst_nei_path)
-
-grenedalf_fstnei_args <- c(
-  "fst",
-  "--frequency-table-path", "../../../Big_data/FF_grenedalf_input.csv",
-  
-  "--pool-sizes", "130",
-  
-  "--method", "unbiased-nei",
-  
-  "--window-type", "interval",
-  "--window-average-policy", "valid-loci",
-  "--filter-sample-min-count", "2",
-  "--filter-sample-min-read-depth", "4",
-  
-  "--window-interval-width", "100000",
-  "--window-interval-stride", "100000",
-  
-  "--out-dir", gdalf_fst_nei_path
-  )
-
-system2(
-  command = "/home/srikantv/miniforge3/bin/grenedalf",
-  args = grenedalf_fstnei_args,
-        
-  stdout = "../../../Big_data/grenedalf_fstnei_out/gdalf_fstnei_log.txt",
-  stderr = "../../../Big_data/grenedalf_fstnei_out/gdalf_fstnei_errors.txt"
-  )
-```
-
-### Fst Nei estimator data load, wrangle and plot
-
-```{r}
-fstnei_out <- read_csv("../../../Big_data/grenedalf_fstnei_out/fst.csv")
-
-FF_FstNei <- fstnei_out %>% 
-  select(chrom, start, end, total.passed,
-         matches("\\.(passed|fst)"))
-
-FF_FstNei <- FF_FstNei %>% pivot_longer(
-  cols = contains(":"),
-  
-  names_to = c("Focal_pop", "Comp_pop", ".value"),
-  
-  names_pattern = "(.*?):(.*?)\\.(.*)"
-)
-
-if (identical(FF_FstNei$total.passed, FF_FstNei$passed)){
-  FF_FstNei <- FF_FstNei %>% select(-total.passed)
-} else {
-  stop("Mismatch between passed values (total vs. specific comparison")
-}
-
-FF_FstNei <- FF_FstNei %>% 
-  filter(chrom %in% c("2L", "2R", "3L", "3R", "X")) %>% 
-  filter(!is.na(fst))
-
-Summary_FstNei <- FF_FstNei %>% group_by(Focal_pop, Comp_pop) %>% 
-  summarise(mean_fst = mean(fst), median_fst = median(fst))
-
-all_pops <- sort(unique(c(as.character(Summary_FstNei$Focal_pop), as.character(Summary_FstNei$Comp_pop))))
-
-FstNei_heatmap_data <- Summary_FstNei %>% 
-  ungroup() %>% 
-  mutate(
-    Focal_pop = factor(Focal_pop, levels = all_pops),
-    Comp_pop = factor(Comp_pop, levels = all_pops),
-  ) %>% 
-  
-  complete(Focal_pop, Comp_pop) %>% 
-  
-  pivot_longer(
-    cols = c(mean_fst, median_fst),
-    names_to = "Measure",
-    values_to = "Value"
-  ) %>% 
-  mutate(
-    Focal_sel = gsub("[0-9]+$", "", as.character(Focal_pop)),
-    Comp_sel = gsub("[0-9]+$", "", as.character(Comp_pop)),
-    
-    Comparison = case_when(
-      Focal_pop == Comp_pop ~ "Self",
-      is.na(Value) ~ "Unmeasured",
-      Focal_sel == Comp_sel ~ "Within",
-      TRUE ~ "Between"
-    )
-  )
-
-FF_FstNei_mean <- FstNei_heatmap_data %>% filter(Measure == "mean_fst")
-
-FF_FstNei_median <- FstNei_heatmap_data %>% filter(Measure == "median_fst")
-
-FstNei_htmp_mean <- ggplot(data = FF_FstNei_mean, 
-    aes(x = Focal_pop, y = Comp_pop)) +
-  geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
-  
-  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
-  # 
-  # scale_color_manual(
-  #   values = c(
-  #     "Self" = "transparent",
-  #     "Unmeasured" = "transparent",
-  #     "Within" = "deepskyblue",
-  #     "Between" = "red"
-  #   )
-  # ) +
-  
-  labs(
-    x = "Focal Population",
-    y = "Compared Population",
-    fill = "Mean Fst",
-    title = "Mean Fst (Nei)"
-  )
-
-FstNei_htmp_median <- ggplot(data = FF_FstNei_median, 
-    aes(x = Focal_pop, y = Comp_pop)) +
-  geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
-  
-  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
-  labs(
-    x = "Focal Population",
-    y = "Compared Population",
-    fill = "Median Fst",
-    title = "Median Fst (Nei)"
-  )
-
-print(FstNei_htmp_mean)
-print(FstNei_htmp_median)
-```
-
-#### Fst Nei Scanplots
-
-```{r}
-FF_FstNei <- FF_FstNei %>% 
-  mutate(
-    Comparison = case_when(
-      substr(Focal_pop, 1, 1) == "C" & substr(Comp_pop, 1, 1) == "C" ~ "CONvsCON",
-      substr(Focal_pop, 1, 1) == "F" & substr(Comp_pop, 1, 1) == "F" ~ "FPvsFP",
-      TRUE ~ "CONvsFP"
-    )
-  )
-
-
-FstNei_scanplots <- FF_FstNei %>%
-  ggplot(aes(x = start, y = fst, color = Comparison, size = fst)) +
-  scale_size_area(max_size = 2) +
-  facet_grid(Comparison ~ chrom) +
-  geom_point(alpha = 0.5) +
-  labs(
-    x = "Window (100kb) Start Position",
-    y = "Fst (Nei)"
-  ) +
-  theme(
-    axis.text.x = element_blank(),
-    legend.position = "none"
-  )
-
-print(FstNei_scanplots)
-```
-
 ### Fst Hudson estimator
-
-### 
 
 ```{r}
 gdalf_fst_hudson_path <- "../../../Big_data/grenedalf_fsthudson_out"
@@ -599,3 +430,212 @@ ScanCvFnCvC <- Pvalscandata %>% filter(
 
 print(ScanCvFnCvC)
 ```
+
+### Mark target SNPs from linear model tests for CONvsFP Fst
+
+The SNPs are confounded with the 100kb window.
+
+Read target SNP data.
+
+```{r}
+target_SNPs <- readRDS("../../../Big_data/lm_targetSNPs.RDS")
+```
+
+Make plots
+
+```{r}
+target_SNPs <- target_SNPs %>% select(CHROM, POS, lm_adjPval)
+FstHudson <- FF_FstHudson %>% select(chrom, start, end, fst, Comparison)
+
+lmtarget_Fst <- left_join(FstHudson, target_SNPs,
+                           by = join_by(
+                             chrom == CHROM,
+                             start <= POS,
+                             end >= POS
+                           )) %>% 
+  mutate(has_SNP = !is.na(POS))
+
+lmtarget_Fst_plot <- lmtarget_Fst %>%  
+  ggplot(aes(x = start, y = fst)) +
+  facet_grid(Comparison ~ chrom) +
+  geom_point(aes(color = has_SNP, alpha = has_SNP, size = has_SNP)) +
+  scale_color_manual(
+    values = c("TRUE" = 'red', "FALSE" = 'grey'),
+    labels = c("TRUE" = "Has Sig. SNP", "FALSE" = "No Sig. SNP"))+
+  scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0.3)) +
+  scale_size_manual(values = c("TRUE" = 2, "FALSE" = 0.3)) +
+  theme(axis.text.x = element_blank(), legend.position = "bottom")
+
+print(lmtarget_Fst_plot)
+```
+
+==============================================
+
+### Fst Nei estimator
+
+```{r}
+gdalf_fst_nei_path <- "../../../Big_data/grenedalf_fstnei_out"
+
+unlink(gdalf_fst_nei_path, recursive = TRUE)
+
+dir.create(gdalf_fst_nei_path)
+
+grenedalf_fstnei_args <- c(
+  "fst",
+  "--frequency-table-path", "../../../Big_data/FF_grenedalf_input.csv",
+  
+  "--pool-sizes", "130",
+  
+  "--method", "unbiased-nei",
+  
+  "--window-type", "interval",
+  "--window-average-policy", "valid-loci",
+  "--filter-sample-min-count", "2",
+  "--filter-sample-min-read-depth", "4",
+  
+  "--window-interval-width", "100000",
+  "--window-interval-stride", "100000",
+  
+  "--out-dir", gdalf_fst_nei_path
+  )
+
+system2(
+  command = "/home/srikantv/miniforge3/bin/grenedalf",
+  args = grenedalf_fstnei_args,
+        
+  stdout = "../../../Big_data/grenedalf_fstnei_out/gdalf_fstnei_log.txt",
+  stderr = "../../../Big_data/grenedalf_fstnei_out/gdalf_fstnei_errors.txt"
+  )
+```
+
+### Fst Nei estimator data load, wrangle and plot
+
+```{r}
+fstnei_out <- read_csv("../../../Big_data/grenedalf_fstnei_out/fst.csv")
+
+FF_FstNei <- fstnei_out %>% 
+  select(chrom, start, end, total.passed,
+         matches("\\.(passed|fst)"))
+
+FF_FstNei <- FF_FstNei %>% pivot_longer(
+  cols = contains(":"),
+  
+  names_to = c("Focal_pop", "Comp_pop", ".value"),
+  
+  names_pattern = "(.*?):(.*?)\\.(.*)"
+)
+
+if (identical(FF_FstNei$total.passed, FF_FstNei$passed)){
+  FF_FstNei <- FF_FstNei %>% select(-total.passed)
+} else {
+  stop("Mismatch between passed values (total vs. specific comparison")
+}
+
+FF_FstNei <- FF_FstNei %>% 
+  filter(chrom %in% c("2L", "2R", "3L", "3R", "X")) %>% 
+  filter(!is.na(fst))
+
+Summary_FstNei <- FF_FstNei %>% group_by(Focal_pop, Comp_pop) %>% 
+  summarise(mean_fst = mean(fst), median_fst = median(fst))
+
+all_pops <- sort(unique(c(as.character(Summary_FstNei$Focal_pop), as.character(Summary_FstNei$Comp_pop))))
+
+FstNei_heatmap_data <- Summary_FstNei %>% 
+  ungroup() %>% 
+  mutate(
+    Focal_pop = factor(Focal_pop, levels = all_pops),
+    Comp_pop = factor(Comp_pop, levels = all_pops),
+  ) %>% 
+  
+  complete(Focal_pop, Comp_pop) %>% 
+  
+  pivot_longer(
+    cols = c(mean_fst, median_fst),
+    names_to = "Measure",
+    values_to = "Value"
+  ) %>% 
+  mutate(
+    Focal_sel = gsub("[0-9]+$", "", as.character(Focal_pop)),
+    Comp_sel = gsub("[0-9]+$", "", as.character(Comp_pop)),
+    
+    Comparison = case_when(
+      Focal_pop == Comp_pop ~ "Self",
+      is.na(Value) ~ "Unmeasured",
+      Focal_sel == Comp_sel ~ "Within",
+      TRUE ~ "Between"
+    )
+  )
+
+FF_FstNei_mean <- FstNei_heatmap_data %>% filter(Measure == "mean_fst")
+
+FF_FstNei_median <- FstNei_heatmap_data %>% filter(Measure == "median_fst")
+
+FstNei_htmp_mean <- ggplot(data = FF_FstNei_mean, 
+    aes(x = Focal_pop, y = Comp_pop)) +
+  geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
+  
+  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
+  # 
+  # scale_color_manual(
+  #   values = c(
+  #     "Self" = "transparent",
+  #     "Unmeasured" = "transparent",
+  #     "Within" = "deepskyblue",
+  #     "Between" = "red"
+  #   )
+  # ) +
+  
+  labs(
+    x = "Focal Population",
+    y = "Compared Population",
+    fill = "Mean Fst",
+    title = "Mean Fst (Nei)"
+  )
+
+FstNei_htmp_median <- ggplot(data = FF_FstNei_median, 
+    aes(x = Focal_pop, y = Comp_pop)) +
+  geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
+  
+  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
+  labs(
+    x = "Focal Population",
+    y = "Compared Population",
+    fill = "Median Fst",
+    title = "Median Fst (Nei)"
+  )
+
+print(FstNei_htmp_mean)
+print(FstNei_htmp_median)
+```
+
+#### Fst Nei Scanplots
+
+```{r}
+FF_FstNei <- FF_FstNei %>% 
+  mutate(
+    Comparison = case_when(
+      substr(Focal_pop, 1, 1) == "C" & substr(Comp_pop, 1, 1) == "C" ~ "CONvsCON",
+      substr(Focal_pop, 1, 1) == "F" & substr(Comp_pop, 1, 1) == "F" ~ "FPvsFP",
+      TRUE ~ "CONvsFP"
+    )
+  )
+
+
+FstNei_scanplots <- FF_FstNei %>%
+  ggplot(aes(x = start, y = fst, color = Comparison, size = fst)) +
+  scale_size_area(max_size = 2) +
+  facet_grid(Comparison ~ chrom) +
+  geom_point(alpha = 0.5) +
+  labs(
+    x = "Window (100kb) Start Position",
+    y = "Fst (Nei)"
+  ) +
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "none"
+  )
+
+print(FstNei_scanplots)
+```
+
+### 
