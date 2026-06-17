@@ -4,4 +4,83 @@ format: html
 editor: visual
 ---
 
-## 
+# Haplotype analysis plots
+
+## Load packages
+
+```{r}
+library(tidyverse)
+library(cowplot)
+
+set_theme(theme_cowplot())
+```
+
+## Load Haplotype P-value data
+
+```{r}
+hap2L <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_2L.Rds")
+hap2R <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_2R.Rds")
+hap3L <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_3L.Rds")
+hap3R <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_3R.Rds")
+hapX <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_X.Rds")
+
+haptotal <- bind_rows(hap2L, hap2R, hap3L, hap3R, hapX)
+
+hap_pvals <- haptotal %>% rename(CHROM = ChArm, POS = Ppos) %>% select(CHROM, POS, ends_with("_p")) %>% drop_na()
+```
+
+### Pivot longer and make boxplot of P-values
+
+```{r}
+hap_pvals_long <- hap_pvals %>% pivot_longer(
+  cols = contains("_p"),
+  names_pattern = "(.*)\\_p",
+  names_to = "Founder",
+  values_to = "log10p"
+)
+
+ggplot(data = hap_pvals_long, 
+       aes(x = Founder, y = log10p, color = Founder)) +
+  geom_boxplot() +
+  scale_color_brewer(palette = "Set1") +
+  labs(x = "Founder Line", y = "-log10(P-value)")
+```
+
+### Adjust P-values
+
+```{r}
+hap_pvals_adj <- hap_pvals %>% mutate(across(
+  .cols = ends_with("_p"),
+  .fns = ~ p.adjust(10^(-.x), method = 'fdr'),
+  .names = "{.col}_adj"
+)) %>% select(CHROM, POS, contains("_adj")) %>% 
+  pivot_longer(
+  cols = contains("_adj"),
+  names_pattern = "(.*)\\_adj",
+  names_to = "Founder",
+  values_to = "adj_p"
+)
+
+box_adj <- hap_pvals_adj %>%  
+  ggplot(aes(x = Founder, y = -log10(adj_p), color = Founder)) +
+  geom_boxplot() +
+  geom_hline(yintercept = -log10(0.05), color = 'red') +
+  scale_color_brewer(palette = "Set1") +
+  labs(x = "Founder Line", y = "adjusted -log10(P-value)")
+
+print(box_adj)
+
+plot_hap_O_adjPval <- hap_pvals_adj %>% filter(Founder == "O_p") %>%
+  ggplot(aes(x = POS, y = -log10(adj_p), size = -log10(adj_p))) +
+  facet_grid(.~ CHROM) +
+  geom_point(color = 'grey', alpha = 0.5) +
+  scale_size_area(max_size = 2) +
+  ylab("-log10(LM: Adjusted P Value)") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+  theme(axis.text.x = element_blank(), legend.position = 'none',
+          panel.background = element_rect(fill = 'grey98'), 
+          panel.spacing = unit(0.5, "lines"))
+          
+print(plot_hap_O_adjPval)
+```
