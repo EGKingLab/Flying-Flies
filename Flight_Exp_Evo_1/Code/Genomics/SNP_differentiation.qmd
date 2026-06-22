@@ -272,8 +272,12 @@ print(freq_tSNP_plt)
 #### Save target SNPs
 
 ```{r}
-saveRDS(target_SNPs,
-        file = "../../../Big_data/lm_targetSNPs.RDS")
+SNPdiff_data %>% select(CHROM, POS, lm_adjPval) %>% 
+write_rds(file = "../../../Big_data/lm_adjpvals_SNPs.RDS")
+
+
+target_SNPs %>% select(CHROM, POS, lm_adjPval) %>% 
+write_rds(file = "../../../Big_data/lm_targetSNPs.RDS")
 ```
 
 ====================================================
