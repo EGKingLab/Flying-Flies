@@ -61,6 +61,21 @@ With this filter, 1,360,234 SNPs remained. Total SNPs after selecting relevant c
 
 With this filter, 1,350937 SNPs remained. Total SNPs after selecting relevant chromosomes and dropping NAs are 1,423,464. A total of 72527 sites were filtered out, which is approx. 5.1% of the unfiltered data.
 
+Moreover, additional filtering criteria are calculated but not implemented (as new columns of TRUE/FALSE values) set as:
+
+Liberal (lib): for a given site, at least one population should have read depth between 20 and 500. At least one population should have frequency between 0.01 and 0.99.
+
+Conservative (cons): for a given site, all populations should have read depth between 30 and 300. Average allele frequency for a given site should be between 0.02 and 0.98.
+
+2026-07-02: After extensive plots on frequency filtering (see "Plotting and analyzing consequences of average allele filtering" section below), there are many sites which are of potential consequence when filtering out average freq outside of 0.01 and 0.99. Multiple sites which turn up significant on linear model testing have populations with frequency at up to 0.04.
+
+Thus, it is decided that the filtering will be finalized at the following criteria:
+
+1.  Read depth between 20 and 500 (any site with any population outside these criteria are filtered)
+2.  Allele frequency: at least one population should have frequency \>=0.02 and \<=0.98.
+
+With this filter, 1,362292 SNPs remained. Total SNPs after selecting relevant chromosomes and dropping NAs are 1,423,464. A total of 61,172 sites were filtered out, which is approx. 4.3% of the unfiltered data.
+
 ```{r}
 # Remove all garbled chromosome names, as well as the 4th and Y chromosome. Set CHROM as factor for easier plotting later. Even though chromosome names have been filtered, the 'unfiltered' in the variable name here refers strictly to allele frequency and read depth. 
 # Remove all NAs. 
@@ -75,6 +90,7 @@ min_depth <- 20
 max_depth <- 500
 min_avgfreq <- 0.01
 max_avgfreq <- 0.99
+
 
 # add tags for different criteria of filters
 FF_filter_status <- FF_genomes_unfiltered %>% 
@@ -99,21 +115,26 @@ FF_filter_status <- FF_genomes_unfiltered %>%
       \(rdepth) rdepth >= min_depth & rdepth <= max_depth),
   
   # liberal allele frequency filter
-  avgfreq_lib = if_any(starts_with("freq_"), 
-      \(freq) freq >= min_avgfreq & freq <= max_avgfreq)
+  filtfreq = if_any(starts_with("freq_"), 
+      \(freq) freq > min_avgfreq & freq < max_avgfreq)
   )
 
-# filter the data by rdepth_filter and avgfreq_filter
+# filter the data by rdepth_filter and avgfreq_lib. This code will be called for loading the data for gene diversity, Fst and haplotype analyses codes.
 FF_genomes_filtered <- FF_filter_status %>% 
-  filter(rdepth_filter & avgfreq_filter)
+  filter(rdepth_filter & filtfreq) %>% select(1:21)
 
 filtered_out <- prefilter_length - length(FF_genomes_filtered$POS)
 
 ```
 
-#### Save filtered data
+#### Save status data and filtered data
 
 ```{r}
+# This data will be called for SNP differentiation. p value adjustment will be done post filtering.
+saveRDS(FF_filter_status,
+        file = "../../../Big_data/FF_filter_status.RDS")
+
+# This data will called for gene diversity, Fst and haplotype analyses.
 saveRDS(FF_genomes_filtered,
         file = "../../../Big_data/FF_genomes_filtered.RDS")
 ```
@@ -123,7 +144,7 @@ UpSet plots and Venn diagrams
 ```{r}
 filter_criteria <- c("rdepth_filter", "avgfreq_filter",
                      "rdepth_cons", "avgfreq_cons",
-                     "rdepth_lib", "avgfreq_lib")
+                     "rdepth_lib", "filtfreq")
 
 # upset plot: balanced filters
 bal_upset <- FF_filter_status %>% 
@@ -155,9 +176,23 @@ upset(
 
 # upset plot: liberal filters
 lib_upset <- FF_filter_status %>% 
-  select(rdepth_lib, avgfreq_lib) %>% 
+  select(rdepth_lib, filtfreq) %>% 
 upset(
   filter_criteria[5:6],
+  name = "Filters Applied",
+  sort_intersections_by = 'degree',
+  base_annotations = list(
+    "Intersection size" = intersection_size(
+      mapping = aes(fill = intersection)
+    ) + theme(legend.position = "none")
+  )
+)
+
+# upset plot: final used filters: rdepth_filter, filtfreq
+filters_upset <- FF_filter_status %>% 
+  select(rdepth_filter, filtfreq) %>% 
+upset(
+  filter_criteria[c(1, 6)],
   name = "Filters Applied",
   sort_intersections_by = 'degree',
   base_annotations = list(
@@ -170,6 +205,7 @@ upset(
 print(bal_upset)
 print(cons_upset)
 print(lib_upset)
+print(filters_upset)
 ```
 
 #### Plot read depth and allele frequency with different filtering criteria
@@ -207,6 +243,26 @@ d_lib <- FF_plots %>%
 
 print(d_lib)
 
+d_cons <- FF_plots %>% 
+  ggplot(aes(x = log10(depth_), fill = rdepth_cons)) +
+  facet_grid(rdepth_cons ~ .) +
+  geom_histogram(aes(y = after_stat(log10(count + 1))),
+       color = 'white', bins = 30) + 
+  geom_vline(xintercept = log10(c(30, 300)), color = 'darkgrey', linetype = 'dashed') +
+  theme_cowplot()
+
+print(d_cons)
+
+freqfilt_plot <- FF_plots %>% 
+  ggplot(aes(x = freq_, fill = filtfreq)) +
+  facet_grid(filtfreq ~ .) +
+  geom_histogram(aes(y = after_stat(log10(count + 1))),
+       color = 'white', bins = 30) + 
+  geom_vline(xintercept = c(0.02, 0.98), color = 'darkgrey', linetype = 'dashed') +
+  theme_cowplot()
+
+print(freqfilt_plot)
+
 f_bal_low <- FF_plots %>% filter(freq_ < 0.1) %>% 
   ggplot(aes(x = freq_, fill = avgfreq_filter)) +
   facet_grid(avgfreq_filter ~.) +
@@ -243,10 +299,11 @@ scandepth <- FF_plots %>% filter(rdepth_filter == FALSE) %>%
 scanfreq_low <- FF_plots %>% filter(freq_ < 0.1, avgfreq_filter == FALSE) %>%
   ggplot(aes(x = POS)) +
   facet_grid(CHROM ~ .) +
-  geom_point(aes(y = freq_), color = 'orangered', alpha = 0.1) +
+  geom_point(aes(y = freq_, color = avgfreq_lib), alpha = 0.1) +
   theme(axis.text.x = element_blank(), legend.position = "bottom") +
   geom_hline(yintercept = min_avgfreq,    
-    color = 'darkgrey', linetype = 'dashed')
+    color = 'darkgrey', linetype = 'dashed') +
+  scale_y_continuous(limits = c(0, 0.1), breaks = seq(0, 0.1, by = 0.1))
 
 
 scanfreq_high <- FF_plots %>% filter(freq_ > 0.9, avgfreq_filter == FALSE) %>%
@@ -255,11 +312,63 @@ scanfreq_high <- FF_plots %>% filter(freq_ > 0.9, avgfreq_filter == FALSE) %>%
   geom_point(aes(y = freq_), color = 'firebrick1', alpha = 0.1) +
   theme(axis.text.x = element_blank(), legend.position = "bottom") +
   geom_hline(yintercept = max_avgfreq,    
-    color = 'darkgrey', linetype = 'dashed')
+    color = 'darkgrey', linetype = 'dashed') +
+  scale_y_continuous(limits = c(0.9, 1), breaks = seq(0.9, 1, by = 0.1))
+
 
 print(scandepth)
 print(scanfreq_low)
 print(scanfreq_high)
+
+```
+
+### Plotting and analyzing consequences of average allele filtering
+
+```{r}
+#scanning sites with high (>=0.05) values of alleles filtered out from lower end
+freq_low_exc <- FF_plots %>% filter(freq_ < 0.1, avgfreq_filter == FALSE) %>%
+  group_by(CHROM, POS) %>% 
+  mutate(maxfreq = max(freq_), fixed_zero = sum(freq_ == 0)) %>%ungroup()
+
+freq_low_pvals <- freq_low_exc %>% filter(maxfreq > 0.01) %>% 
+  separate_wider_regex(
+    cols = Population,
+    patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")) %>% 
+  unite("SNP_ID", CHROM, POS, sep = "_") %>% 
+  mutate(asqfreq = asin(sqrt(freq_))) %>% 
+  group_by(SNP_ID) %>% 
+  reframe(
+    tidy(anova(lm(asqfreq ~ Selection, data = pick(everything())))),
+  ) %>% filter(term == "Selection")
+
+freq_low_pvals <- freq_low_pvals %>% separate_wider_delim(cols = SNP_ID, delim = "_", names = c('CHROM', 'POS')) %>% mutate(POS = as.numeric(POS))
+
+freq_low_exc <- freq_low_exc %>% left_join(freq_low_pvals, by = c("CHROM", "POS"))
+
+freq_low_exc_plot <- freq_low_exc %>% filter(maxfreq != 0) %>%
+  ggplot(aes(x = maxfreq, y = fixed_zero)) +
+  geom_count(aes(color = (fixed_zero < 6 & maxfreq > 0.02), size = after_stat(n)))
+  # scale_color_brewer() +
+  # scale_x_continuous(breaks = seq(0, 0.08, by = 0.01)) +
+  # scale_y_continuous(breaks = seq(0, 8, by = 1))
+print(freq_low_exc_plot)
+
+freq_low_pvals_plot <- freq_low_exc %>% drop_na() %>% 
+  filter(p.value < 0.1) %>% 
+  ggplot(aes(x = maxfreq, y = p.value, color = fixed_zero)) +
+  geom_point(alpha = 0.2, position = position_dodge()) +
+  theme_cowplot()
+
+print(freq_low_pvals_plot)
+
+f_l_pvals_plot2 <- freq_low_exc %>% drop_na() %>% 
+  filter(p.value < 0.05) %>% 
+  ggplot(aes(x = p.value, y = freq_)) + 
+  geom_point(color = 'cyan2', alpha = 0.2) +
+  theme_cowplot()
+
+print(f_l_pvals_plot2)
+
 ```
 
 ## OLD FILTER CODE {style="color:red;"}
