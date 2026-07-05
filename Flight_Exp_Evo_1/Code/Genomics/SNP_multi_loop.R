@@ -8,11 +8,13 @@ library(tidyverse)
 FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS") %>% 
   filter(CHROM == target_chrom)
 
-FF_matrix_raw <- FF_genomes_filtered[, seq(5,12, by=1)]
-FF_depth <- FF_genomes_filtered[, seq(13,20, by=1)]
-
-FF_matrix <- as.matrix(FF_matrix_raw)
-FF_depth <- as.matrix(FF_depth)
+FF_matrix_raw <- FF_genomes_filtered %>% 
+  select(starts_with("freq_")) %>% 
+  as.matrix()
+  
+FF_depth <- FF_genomes_filtered %>% 
+  select(starts_with("N_")) %>% 
+  as.matrix()
 
 # linear model
 lm_out <- numeric(length = nrow(FF_matrix))
