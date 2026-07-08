@@ -121,7 +121,9 @@ FF_filter_status <- FF_genomes_unfiltered %>%
 
 # filter the data by rdepth_filter and avgfreq_lib. This code will be called for loading the data for gene diversity, Fst and haplotype analyses codes.
 FF_genomes_filtered <- FF_filter_status %>% 
-  filter(rdepth_filter & filtfreq) %>% select(1:21)
+  filter(rdepth_filter & filtfreq) %>% 
+  dplyr::select(Nmiss, CHROM, POS, REF, ALT, 
+                starts_with("freq_"), starts_with("N_"))
 
 filtered_out <- prefilter_length - length(FF_genomes_filtered$POS)
 
@@ -148,7 +150,7 @@ filter_criteria <- c("rdepth_filter", "avgfreq_filter",
 
 # upset plot: balanced filters
 bal_upset <- FF_filter_status %>% 
-  select(rdepth_filter, avgfreq_filter) %>% 
+  dplyr::select(rdepth_filter, avgfreq_filter) %>% 
 upset(
   filter_criteria[1:2],
   name = "Filters Applied",
@@ -162,7 +164,7 @@ upset(
 
 # upset plot: conservative filters
 cons_upset <- FF_filter_status %>% 
-  select(rdepth_cons, avgfreq_cons) %>% 
+  dplyr::select(rdepth_cons, avgfreq_cons) %>% 
 upset(
   filter_criteria[3:4],
   name = "Filters Applied",
@@ -176,7 +178,7 @@ upset(
 
 # upset plot: liberal filters
 lib_upset <- FF_filter_status %>% 
-  select(rdepth_lib, filtfreq) %>% 
+  dplyr::select(rdepth_lib, filtfreq) %>% 
 upset(
   filter_criteria[5:6],
   name = "Filters Applied",
@@ -190,7 +192,7 @@ upset(
 
 # upset plot: final used filters: rdepth_filter, filtfreq
 filters_upset <- FF_filter_status %>% 
-  select(rdepth_filter, filtfreq) %>% 
+  dplyr::select(rdepth_filter, filtfreq) %>% 
 upset(
   filter_criteria[c(1, 6)],
   name = "Filters Applied",
@@ -299,7 +301,7 @@ scandepth <- FF_plots %>% filter(rdepth_filter == FALSE) %>%
 scanfreq_low <- FF_plots %>% filter(freq_ < 0.1, avgfreq_filter == FALSE) %>%
   ggplot(aes(x = POS)) +
   facet_grid(CHROM ~ .) +
-  geom_point(aes(y = freq_, color = avgfreq_lib), alpha = 0.1) +
+  geom_point(aes(y = freq_, color = filtfreq), alpha = 0.1) +
   theme(axis.text.x = element_blank(), legend.position = "bottom") +
   geom_hline(yintercept = min_avgfreq,    
     color = 'darkgrey', linetype = 'dashed') +
@@ -309,7 +311,7 @@ scanfreq_low <- FF_plots %>% filter(freq_ < 0.1, avgfreq_filter == FALSE) %>%
 scanfreq_high <- FF_plots %>% filter(freq_ > 0.9, avgfreq_filter == FALSE) %>%
   ggplot(aes(x = POS)) +
   facet_grid(CHROM ~ .) +
-  geom_point(aes(y = freq_), color = 'firebrick1', alpha = 0.1) +
+  geom_point(aes(y = freq_, color = filtfreq), alpha = 0.1) +
   theme(axis.text.x = element_blank(), legend.position = "bottom") +
   geom_hline(yintercept = max_avgfreq,    
     color = 'darkgrey', linetype = 'dashed') +
