@@ -30,7 +30,6 @@ merge.snp.table <- merge.snp.table[-ww,]
 
 saveRDS(merge.snp.table, file= "../../../Big_data/SNPpool_wFounders.RDS")
 
-
 u_pool <- anti_join(pool.snp, found.snp, by = join_by(CHROM, POS))
 saveRDS(u_pool, file= "../../../Big_data/SNPs_in_FF_notin_Founders.RDS")
 
