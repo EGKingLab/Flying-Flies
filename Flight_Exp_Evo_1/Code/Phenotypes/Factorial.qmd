@@ -23,6 +23,7 @@ library(glmmTMB)
 library(car)
 library(emmeans)
 library(ggeffects)
+library(broom)
 
 theme_set(theme_cowplot())
 ```
@@ -66,6 +67,7 @@ ggplot(data = Flight_data) + geom_point(aes(x = ChamberNum, y = Freq_per_chamber
 ggplot(data = Flight_data) + geom_point(aes(x = ChamberNum, y = Freq_per_chamber, color = Fan_Status), position = position_dodge(width = 0.75))
 
 ggplot(data = Flight_data) + geom_point(aes(x = ChamberNum, y = Freq_per_chamber, color = Selection), position = position_dodge(width = 0.75)) + facet_wrap(~ Light_Status + Fan_Status)
+
 ```
 
 NOTE: Might be a good idea to expand the frequency distribution and fit a zero inflated model. In this case each fly has its own data row.
@@ -158,6 +160,7 @@ Mean_dist_plots <- Mean_dist %>%
   stat_summary(fun = "mean", color = "black", shape = "-", size = 4) + 
   labs(x = "Comparison", y = "Mean Chambers Traversed")
 print(Mean_dist_plots)
+
 ```
 
 #### Save plot
