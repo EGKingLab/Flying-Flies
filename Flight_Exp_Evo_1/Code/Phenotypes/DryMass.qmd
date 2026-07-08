@@ -117,11 +117,11 @@ eta_squared(selected_model_Mass)
 ### Plots
 
 ```{r}
-mass_plot <- ggplot(data = Mass_data, aes(x = Selection, y = DryMass)) +
-  geom_boxplot(color = 'darkblue', outlier.shape = NA) +
-  geom_point(aes(shape = PopReplicate), color = 'steelblue1', position = position_jitter(width = 0.1), alpha = 0.5) +
-  facet_grid(.~Sex) +
-  stat_summary(fun = 'mean', color = 'red', size = 4, shape = '-') + labs(x = "Selection", y = "Dry Mass (10^-4g)")
+mass_plot <- ggplot(data = Mass_data, aes(x = Selection, y = DryMass,fill = Sex)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.1, color = 'darkblue') +
+  geom_point(aes(shape = PopReplicate), position = position_jitter(width = 0.1), alpha = 0.5, color = 'steelblue1') +
+  facet_grid(Sex ~ ., scales = "free_y") +
+  stat_summary(fun = 'mean', color = 'red', size = 4, shape = '-') + labs(x = "Selection", y = "Dry Mass (10^-4g)") 
 
 print(mass_plot)
 ```
