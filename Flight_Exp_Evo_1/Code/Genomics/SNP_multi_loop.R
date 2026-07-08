@@ -8,7 +8,7 @@ library(tidyverse)
 FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS") %>% 
   filter(CHROM == target_chrom)
 
-FF_matrix_raw <- FF_genomes_filtered %>% 
+FF_matrix <- FF_genomes_filtered %>% 
   select(starts_with("freq_")) %>% 
   as.matrix()
   
@@ -97,7 +97,7 @@ for(ii in 1:nrow(FF_matrix)){
   }
 }
 
-FF_results <- FF_genomes_filtered[, c(1, 2)]
+FF_results <- FF_genomes_filtered %>% select(CHROM, POS)
 
 FF_results$lm_Pval <- lm_out
 FF_results$comp_Pval <- comp_out
