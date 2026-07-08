@@ -56,7 +56,7 @@ anova(fit_surv1)
 
 ```{r}
 surv_plot <- ggplot(data = Surv_data, aes(x = Selection, y = Surv)) + geom_boxplot(outlier.shape = NA) + geom_point(aes(shape = factor(Replicate)), position = position_jitter(width = 0.1), size = 1.5, color = "steelblue") + stat_summary(fun = "mean", color = "red", shape = "-", size = 4) +
-  labs(x = "Selection", y = "Egg-to-adult Survivorship")
+  labs(x = "Selection", y = "Egg-to-adult Survivorship", shape = "Replicate")
 
 print(surv_plot)
 ```
