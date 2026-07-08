@@ -173,8 +173,8 @@ print(plot_qb_w_adjPval)
 target_SNPs <- SNPdiff_data %>% filter(lm_adjPval < 0.05) 
 
 target_SNPs_pvals <- target_SNPs %>% 
-  mutate("SNP_ID" = paste0(CHROM, POS, sep = '_')) %>% 
-  pivot_longer(cols = 2:13,
+  mutate("SNP_ID" = paste(CHROM, POS, sep = '_')) %>% 
+  pivot_longer(cols = contains("Pval"),
                names_to = "Res", values_to = "Pval") %>% 
   mutate("logPval" = -log10(Pval))
 
@@ -185,13 +185,18 @@ target_SNP_full <- semi_join(FF_genomes_filtered, target_SNPs)
 target_SNP_full <- full_join(target_SNP_full, target_SNPs)
 
 target_SNP_full <- target_SNP_full %>%
-  select(-REF, -ALT) %>% 
+  dplyr::select(-REF, -ALT) %>% 
   mutate("SNP_ID" = paste0(CHROM, POS, sep = '_')) %>% 
   pivot_longer(
-  cols = c(starts_with('freq_'), starts_with('depth_')),
+  cols = c(starts_with('freq_'), starts_with('N_')),
   names_to = c(".value", "Population"),
-  names_pattern = "(freq|depth)_(.*)"
-  ) %>% separate_wider_regex(
+  names_pattern = "(freq|N)_(.*)"
+  ) %>% rename(depth = N) %>% 
+  # Removes all text after the second underscore,
+  # used to remove _G13_sample...
+  # this leaves freq_CON1, N_CON1, and so on.
+  mutate(Population = str_remove(Population, "_.*")) %>% 
+  separate_wider_regex(
     cols = Population,
     patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")
     ) %>% 
@@ -272,11 +277,11 @@ print(freq_tSNP_plt)
 #### Save target SNPs
 
 ```{r}
-SNPdiff_data %>% select(CHROM, POS, lm_adjPval) %>% 
+SNPdiff_data %>% dplyr::select(CHROM, POS, lm_adjPval) %>% 
 write_rds(file = "../../../Big_data/lm_adjpvals_SNPs.RDS")
 
 
-target_SNPs %>% select(CHROM, POS, lm_adjPval) %>% 
+target_SNPs %>% dplyr::select(CHROM, POS, lm_adjPval) %>% 
 write_rds(file = "../../../Big_data/lm_targetSNPs.RDS")
 ```
 
