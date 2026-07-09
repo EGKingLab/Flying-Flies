@@ -32,7 +32,7 @@ haptotal <- haptotal %>% rename(CHROM = ChArm, POS = Ppos) %>% drop_na()
 
 target_SNPs <- readRDS("../../../Big_data/lm_targetSNPs.RDS")
 
-target_SNPs <- target_SNPs %>% select(CHROM, POS) %>% mutate(Target = "Significant")
+target_SNPs <- target_SNPs %>% dplyr::select(CHROM, POS) %>% mutate(Target = "Significant")
 
 haptotal <- haptotal %>% left_join(target_SNPs, 
                                       by = join_by(
@@ -44,7 +44,7 @@ haptotal <- haptotal %>% left_join(target_SNPs,
 ### Pivot longer and make boxplot of P-values
 
 ```{r}
-hap_pvals <- haptotal %>% select(CHROM, POS, ends_with("_p"), Target)
+hap_pvals <- haptotal %>% dplyr::select(CHROM, POS, ends_with("_p"), Target)
 
 hap_pvals_long <- hap_pvals %>% pivot_longer(
   cols = contains("_p"),
@@ -67,7 +67,7 @@ hap_pvals_adj <- hap_pvals %>% mutate(across(
   .cols = ends_with("_p"),
   .fns = ~ p.adjust(10^(-.x), method = 'fdr'),
   .names = "{.col}_adj"
-)) %>% select(CHROM, POS, contains("_adj"), Target) %>% 
+)) %>% dplyr::select(CHROM, POS, contains("_adj"), Target) %>% 
   pivot_longer(
   cols = contains("_adj"),
   names_pattern = "(.*)\\_adj",
@@ -110,7 +110,7 @@ output\[,paste0(hapi,"\_D")\]\<- abs(rowMeans(ffreq_all\[,hapi,1:4\]) - rowMeans
 MA is mean of all A1:A8 D values at each SNP.
 
 ```{r}
-hap_Dvals <- haptotal %>% select(CHROM, POS, ends_with("_D"), Target) %>% pivot_longer(
+hap_Dvals <- haptotal %>% dplyr::select(CHROM, POS, ends_with("_D"), Target) %>% pivot_longer(
   cols = contains("_D"),
   names_pattern = "(.*)\\_D",
   names_to = "Founder",
@@ -137,4 +137,43 @@ plot_hap_Dvals <- hap_Dvals %>% filter(Founder != "MA") %>%
           panel.spacing = unit(0.5, "lines"))
           
 print(plot_hap_Dvals)
+```
+
+#### Save significant sites from O
+
+```{r}
+hap_pvals_adj %>% filter(Founder == "O_p") %>% 
+  dplyr::select(CHROM, POS, adj_p) %>% 
+  write_rds(file = "../../../Big_data/hap_pvals_adj.RDS")
+```
+
+## Inferred Base Population
+
+```{r}
+# read base population
+base_pop <- readRDS("../../../Big_data/Base_pop_SNP_freq.RDS")
+
+base_pop <- base_pop %>% mutate(CHROM = factor(CHROM),
+                                Base_freq = unname(Base_freq))
+
+# read filtered data
+FF_filt <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
+
+FF_inf_obs <- FF_filt %>% full_join(base_pop, FF_filt, 
+                                    by = c("CHROM", "POS")) %>% 
+  dplyr::select(CHROM, POS, Base_freq, starts_with("freq_")) %>% 
+  drop_na() %>% pivot_longer(
+  cols = starts_with('freq_'),
+  names_to = c(".value", "Population"),
+  names_pattern = "(freq)_(.*)") %>% 
+  # Removes all text after the second underscore,
+  # used to remove _G13_sample...
+  # this leaves freq_CON1, N_CON1, and so on.
+  mutate(Population = str_remove(Population, "_.*")) %>% 
+  separate_wider_regex(
+    cols = Population,
+    patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")
+    ) %>% 
+  mutate_at(c("Selection", "PopReplicate"), factor) %>% 
+  mutate(dev_frm_base = Base_freq - freq)
 ```
