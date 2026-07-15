@@ -38,7 +38,7 @@ Mass_data <- Mass_data_raw %>% group_by(Selection, PopReplicate, Vial, Sex, Vial
   summarise(DryMass = mean(DryMassTechnical)) %>% 
   mutate(PopRep = paste(Selection, PopReplicate, sep = "_")) %>% 
   mutate(VialNest = paste(PopRep, Vial, sep = "_V")) %>% 
-  mutate_at(c("Selection", "PopReplicate", "PopRep", "Sex", "VialNest"), factor)
+  mutate_at(c("Selection", "PopReplicate", "PopRep", "Sex", "VialNest"), factor) %>% mutate(Sex = fct_recode(Sex, "Female" = "F", "Male" = "M"))
   
 ```
 
@@ -81,46 +81,28 @@ cohens_f(fit_full_reml)
 
 ```{r}
 # Female
-F_Mass_data <- Mass_data %>% filter(Sex == "F")
+F_Mass_data <- Mass_data %>% filter(Sex == "Female")
 
 fit_sel_f <- lmer(data = F_Mass_data, REML = TRUE,
                 DryMass ~ Selection + (1|PopRep))
 anova(fit_sel_f)
 
-M_Mass_data <- Mass_data %>% filter(Sex == "M")
+M_Mass_data <- Mass_data %>% filter(Sex == "Male")
 
 fit_sel_m <- lmer(data = M_Mass_data, REML = TRUE,
                 DryMass ~ Selection + (1|PopRep))
 anova(fit_sel_m)
 ```
 
-### OLD: Dredge function
-
-AIC table using dredge function
-
-```{r}
-options(na.action = "na.fail") # required for dredge function
-
-global_model_Mass <- lmer(data = Mass_data, REML = FALSE,
-  DryMass ~ Selection * Sex + (1|PopRep))
-
-AIC_res_Mass <- dredge(global_model_Mass)
-
-# view(as.data.frame(AIC_res_Mass))
-
-selected_model_Mass <- lmer(data = Mass_data, REML = TRUE,
-  DryMass ~ Selection * Sex + (1|PopRep))
-
-eta_squared(selected_model_Mass)
-```
-
 ### Plots
 
 ```{r}
-mass_plot <- ggplot(data = Mass_data, aes(x = Selection, y = DryMass,fill = Sex)) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.1, color = 'darkblue') +
-  geom_point(aes(shape = PopReplicate), position = position_jitter(width = 0.1), alpha = 0.5, color = 'steelblue1') +
-  facet_grid(Sex ~ ., scales = "free_y") +
+mass_plot <- Mass_data %>% rename(Replicate = PopReplicate) %>% 
+  ggplot(aes(x = Selection, y = DryMass)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.1, color = 'darkblue', 
+               fill = 'salmon') +
+  geom_point(aes(shape = Replicate), position = position_dodge(width = 0.5), alpha = 0.5, color = 'steelblue1') +
+  facet_grid(.~Sex, scales = "free_y") +
   stat_summary(fun = 'mean', color = 'red', size = 4, shape = '-') + labs(x = "Selection", y = "Dry Mass (10^-4g)") 
 
 print(mass_plot)
@@ -129,7 +111,10 @@ print(mass_plot)
 #### Save plot
 
 ```{r}
-ggsave(mass_plot, filename = "../../Plots/mass_plot.jpeg", dpi = 400, width = 12, height = 6)
+# ggsave(mass_plot, filename = "../../Plots/mass_plot.jpeg", dpi = 400, width = 12, height = 6)
+
+# Save plot data
+saveRDS(mass_plot, file = "../../Plots/ggplot_files/mass_plot.RDS")
 ```
 
 #### Old Analysis
@@ -173,6 +158,26 @@ ggplot(data = Mass_data, aes(x = Selection, y = DryMass)) +
   geom_point(aes(shape = PopReplicate), color = 'steelblue1', position = position_jitter(width = 0.1)) +
   facet_grid(~Sex) +
   stat_summary(fun = 'mean', color = 'red', size = 4, shape = '-')
+```
+
+### OLD: Dredge function
+
+AIC table using dredge function
+
+```{r}
+options(na.action = "na.fail") # required for dredge function
+
+global_model_Mass <- lmer(data = Mass_data, REML = FALSE,
+  DryMass ~ Selection * Sex + (1|PopRep))
+
+AIC_res_Mass <- dredge(global_model_Mass)
+
+# view(as.data.frame(AIC_res_Mass))
+
+selected_model_Mass <- lmer(data = Mass_data, REML = TRUE,
+  DryMass ~ Selection * Sex + (1|PopRep))
+
+eta_squared(selected_model_Mass)
 ```
 
 ### 
