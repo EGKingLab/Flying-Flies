@@ -1,0 +1,26 @@
+---
+title: "Flight_per_multigen"
+format: html
+editor: visual
+---
+
+# The Evolution of Flight Performance
+
+This script evaluates and analyses flight performance data over 10 generations of selection.
+
+### Load packages and data
+
+```{r}
+library(tidyverse)
+library(cowplot)
+
+FP_flight_raw <- read_excel("../../../Raw_data/Data - Selection Flight.xlsx")
+
+CON_flight_raw <- read_excel("../../../Raw_data/Data - Controls Selection Flight.xlsx")
+```
+
+### Join and wrangle data
+
+```{r}
+
+```
