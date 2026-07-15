@@ -56,6 +56,7 @@ fit_Fec <- lmer(data = Fecund_data, REML = TRUE,
   Ind_Fec ~ Selection + (1|PopRep))
 
 anova(fit_Fec)
+eta_squared(fit_Fec)
 
 Fecund_data <- Fecund_data %>% mutate(log_Fec = -(log(Ind_Fec + 0.00001)))
 # log transformed analysis
@@ -63,6 +64,13 @@ fit_Fec_log <- lmer(data = Fecund_data, REML = TRUE,
                     log_Fec ~ Selection + (1|PopRep))
 
 anova(fit_Fec_log)
+eta_squared(fit_Fec_log)
+
+fit_Fec_logplate <- lmer(data = Fecund_data, REML = TRUE,
+        log_Fec ~ Selection * factor(Plate) + (1|PopRep))
+
+anova(fit_Fec_logplate)
+eta_squared(fit_Fec_logplate)
 ```
 
 ## Plots
@@ -71,7 +79,7 @@ anova(fit_Fec_log)
 fec_plot <- ggplot(data = Fecund_data, aes(x = Selection, y = Ind_Fec)) +
   geom_boxplot(color = 'darkblue',outlier.shape = NA) + 
   geom_point(aes(shape = Replicate), 
-             position = position_jitter(width = 0.1), 
+             position = position_dodge(width = 0.5), 
              size = 3, color = "steelblue", alpha = 0.5) + 
  stat_summary(fun = "mean", color = "red", shape = "-", size = 4)+
   labs(x = "Selection", y = "Fecundity in 2 hour window (per capita)")
@@ -79,8 +87,64 @@ fec_plot <- ggplot(data = Fecund_data, aes(x = Selection, y = Ind_Fec)) +
 print(fec_plot)
 ```
 
+#### Additional plots of total fecundity and population size
+
+```{r}
+fec_pop <- ggplot(data = Fecund_data) + geom_point(aes(x = PopFemales, y = Fecundity, color = Selection), size = 5, alpha = 0.5) + 
+  geom_point(aes(x = PopFemales, y = Fecundity, shape = factor(Plate)), color = 'black', size = 4) +
+  scale_shape_manual(values = c("1", "2", "3")) +
+  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') + theme_cowplot()
+
+indfec_plates <- ggplot(data = Fecund_data, 
+  aes(x = factor(Plate), y = Ind_Fec)) + 
+  geom_point(aes(color = Selection, shape = Replicate, 
+          group = Selection), 
+          size = 3, position = position_dodge(width=0.4)) + 
+  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') + labs(x = 'Plate') + theme_cowplot()
+
+print(fec_pop)
+print(indfec_plates)
+```
+
+#### Analyses of total fecundity, effect of plates
+
+```{r}
+totfec_data <- Fecund_data %>% group_by(Selection, Replicate) %>% summarise(TotFec = sum(Fecundity), TotF = mean(TotF)) %>%
+  mutate(Ind_totFec = TotFec/TotF)
+
+# totfecbypop_mod <- lm(data = totfec_data, 
+#                       formula = TotFec ~ TotF)
+# 
+# anova(totfecbypop_mod)
+
+corr_fecpop <- Fecund_data %>% 
+  group_split(Selection) %>% 
+  map(~cor.test(.x$TotF, .x$Fecundity, method = 'pearson'))
+
+names(corr_fecpop) <- levels(Fecund_data$Selection)
+
+print(corr_fecpop$CON)
+print(corr_fecpop$FP)
+
+totFbySel <- lm(data = totfec_data, 
+                formula = TotF ~ Selection)
+
+anova(totFbySel)
+
+totIndfec_mod <- lm(data = totfec_data,
+                    formula = Ind_totFec ~ Selection)
+
+anova(totIndfec_mod)
+
+ggplot(data = totfec_data) + 
+  geom_point(aes(x = Selection, y = Ind_totFec, shape = Replicate), position = position_jitter(width = 0.1)) + theme_cowplot()
+```
+
 #### Save fecundity plot
 
 ```{r}
-ggsave(fec_plot, filename = "../../Plots/fec_plot.jpeg", dpi = 400, width = 12, height = 6)
+# ggsave(fec_plot, filename = "../../Plots/fec_plot.jpeg", dpi = 400, width = 12, height = 6)
+
+# Save plot data
+saveRDS(fec_plot, file = "../../Plots/ggplot_files/fec_plot.RDS")
 ```
