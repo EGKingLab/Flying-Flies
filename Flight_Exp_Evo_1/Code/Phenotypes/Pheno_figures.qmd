@@ -1,0 +1,55 @@
+---
+title: "Phenotypefigs_patchwork"
+format: html
+editor: visual
+---
+
+# Phenotype figures
+
+This file creates figures of the various phenotype plots for the manuscript.
+
+### Load packages
+
+```{r}
+library(tidyverse)
+library(patchwork)
+library(cowplot)
+```
+
+## Figure: Life-history phenotypes
+
+Load ggplot files
+
+```{r}
+mass_plot <- readRDS("../../Plots/ggplot_files/mass_plot.RDS")
+fec_plot <- readRDS("../../Plots/ggplot_files/fec_plot.RDS")
+surv_plot <- readRDS("../../Plots/ggplot_files/surv_plot.RDS")
+```
+
+Tweak existing plots as required
+
+```{r}
+mass_plot <- mass_plot + guides(shape = 'none') + 
+  labs(x = NULL)
+
+surv_plot <- surv_plot + guides(shape = 'none')
+
+print(mass_plot)
+print(surv_plot)
+```
+
+### Assemble life-history figure with patchwork
+
+```{r}
+lh_fig <- mass_plot/(surv_plot|fec_plot) + 
+  #plot_layout(guides = "collect") +
+  plot_annotation(
+  title = "Life-history consequences of selection for improved flight performance",
+  tag_levels = 'A'
+) & theme_cowplot() & theme(legend.position = 'bottom')
+  
+print(lh_fig)
+
+ggsave(lh_fig, filename = "../../Plots/LH_fig.jpeg", dpi = 400,
+       width = 10, height = 12)
+```
