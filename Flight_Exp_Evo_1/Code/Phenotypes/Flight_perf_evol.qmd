@@ -12,6 +12,8 @@ This script evaluates and analyses flight performance data over 10 generations o
 
 ```{r}
 library(tidyverse)
+library(lme4)
+library(lmerTest)
 library(cowplot)
 
 FP_flight_raw <- read_excel("../../../Raw_data/Data - Selection Flight.xlsx")
@@ -21,6 +23,148 @@ CON_flight_raw <- read_excel("../../../Raw_data/Data - Controls Selection Flight
 
 ### Join and wrangle data
 
-```{r}
+The following data is removed:
 
+FP: those runs which have C0 as NA, and the run which was marked to be voided.
+
+CON: the CON4 G6 run #2 which was mistakenly marked run 1, and noted to have a limited number of flies.
+
+```{r}
+# G13 of CON = G10 of FP; change Gen to GenSel
+# replace generations of CON with generations of FP selection
+
+CON_flight <- CON_flight_raw %>% 
+  mutate(GenFP = parse_number(Generation) - 3) %>% 
+  filter(!str_detect(Notes, "limited") | is.na(Notes)) %>% 
+  dplyr::select(-Week, -Notes) %>% 
+  separate_wider_delim(cols = Line,
+                       delim = "-",
+                       names = c("Selection", "Replicate"),
+                       cols_remove = TRUE
+                       ) %>% 
+  mutate(Selection = str_replace_all(
+  Selection, "Control", "CON")) %>% 
+  mutate(Run = as.character(Run))
+  
+# filtering out NA in C0 and voided data
+FP_flight <- FP_flight_raw %>% 
+  mutate(GenFP = parse_number(Generation)) %>% 
+  filter((!str_detect(Notes, "void") | is.na(Notes)), !is.na(C0)) %>% dplyr::select(-Notes) %>% 
+  separate_wider_regex(
+    cols = Line,
+    patterns = c("Selection" = ".*", "Replicate" = "\\d$")) 
+
+
+FlightGen_data_wide <- bind_rows(CON_flight, FP_flight)
+
+FlightGen_data <- FlightGen_data_wide %>% 
+  mutate(PopRepNest = paste0(Selection, Replicate)) %>% pivot_longer(
+  cols = starts_with("C"),
+  names_to = "Chamber",
+  values_to = "FlyCount"
+) %>% dplyr::select(-Month, -Day, -Year) %>% 
+  mutate(across(c(Selection, Replicate, GenFP, PopRepNest), 
+          as.factor))  %>% 
+  group_by(Selection, PopRepNest, GenFP, Run) %>% 
+mutate(FlyFreq = FlyCount/sum(FlyCount), RSum = sum(FlyCount)) %>%
+  ungroup()
+
+# ensures that runs don't appear duplicate by mistake
+Run_summary <- FlightGen_data %>% dplyr::count(
+  Selection, PopRepNest, GenFP, Run, name = "N_Rows"
+)
+
+unique(Run_summary$N_Rows) # Should only be 32
+sumtest <- FlightGen_data$Sum == FlightGen_data$RSum # Should be all true
+unique(sumtest)
+
+# Calculate mean distance traversed per factor combination (averaging over Runs)
+FlightGen_means <- FlightGen_data %>%
+  mutate(ChamberNum = parse_number(Chamber)) %>% 
+  group_by(Selection, Replicate, PopRepNest, GenFP) %>% 
+  summarise(MeanCh = weighted.mean(ChamberNum, FlyFreq))
+```
+
+### Analyses of flight performance
+
+```{r}
+# with selection and generation as factors
+selgenmod <- lmer(data = FlightGen_means,
+                  formula = MeanCh ~ Selection * GenFP + (1|PopRepNest))
+
+anova(selgenmod)
+eta_squared(selgenmod)
+
+# Only CON
+CONGen_data <- FlightGen_means %>% filter(Selection == "CON") 
+
+CONmod <- lmer(data = CONGen_data, formula = MeanCh ~ GenFP + (1|PopRepNest))
+
+anova(CONmod)
+eta_squared(CONmod)
+
+# Only FP
+FPGen_data <- FlightGen_means %>% filter(Selection == "FP") 
+
+FPmod <- lmer(data = FPGen_data, formula = MeanCh ~ GenFP + (1|PopRepNest))
+
+anova(FPmod)
+eta_squared(FPmod)
+
+```
+
+## Plots
+
+### Mean Plots
+
+```{r}
+selgen_segments <- FlightGen_means %>% 
+  group_by(Selection, GenFP) %>% 
+  summarise(mSelGen = mean(MeanCh), .groups = "drop") %>% 
+  pivot_wider(names_from = Selection, values_from = mSelGen) %>% 
+  mutate(selmin = pmin(CON, FP), selmax = pmax(CON, FP))
+
+
+mean_flightgen_plot <- ggplot() +
+  geom_point(data = FlightGen_means, aes(x = GenFP, y = MeanCh, 
+  color = Selection, shape =  Replicate), size = 2, alpha = 0.4) +
+  geom_segment(data = selgen_segments, aes(
+    x = GenFP, xend = GenFP, y = selmin, yend = selmax),
+  color = 'gray30', linewidth = 0.3, alpha = 0.8) +
+  stat_summary(data = FlightGen_means, aes(
+    x = GenFP, y = MeanCh, color = Selection),
+    fun = mean, size = 4, shape = '-') +
+  theme_cowplot()
+
+print(mean_flightgen_plot)
+
+```
+
+### Heatmaps
+
+```{r}
+heat_flightgen <- FlightGen_data %>% mutate(
+  ChamberNum = parse_number(Chamber)) %>% 
+  ggplot(aes(y = as.integer(GenFP), x = ChamberNum, fill = FlyFreq)) +
+  facet_grid(Replicate ~ Selection) +
+  geom_tile() +
+  scale_y_reverse() +
+  scale_fill_viridis_c(option = 'magma',trans = 'log10', na.value = 'white', direction = -1) +
+  theme_cowplot() 
+
+print(heat_flightgen)
+
+
+heat_onlysel <- FlightGen_data %>% mutate(
+  ChamberNum = parse_number(Chamber)) %>% 
+  group_by(Selection, GenFP, ChamberNum) %>% 
+  summarise(MeanFreq = mean(FlyFreq)) %>% 
+  ggplot(aes(x = as.integer(GenFP), y = ChamberNum, fill = MeanFreq)) +
+  facet_grid(.~Selection) +
+  geom_tile() +
+  #scale_y_reverse() +
+  scale_fill_viridis_c(option = 'plasma',trans = 'log10', na.value = 'white', direction = -1) +
+  theme_cowplot() 
+
+print(heat_onlysel)
 ```
