@@ -166,7 +166,9 @@ print(Mean_dist_plots)
 #### Save plot
 
 ```{r}
-ggsave(Mean_dist_plots, filename = "../../Plots/Fact_meandist_main.jpeg", dpi = 400, width = 12, height = 6)
+# ggsave(Mean_dist_plots, filename = "../../Plots/Fact_meandist_main.jpeg", dpi = 400, width = 12, height = 6)
+
+saveRDS(Mean_dist_plots, file = "../../Plots/ggplot_files/Fact_mdist_plot.RDS")
 ```
 
 ## Zero inflated negative binomial distribution
@@ -181,7 +183,7 @@ Flight_zinbinom_data <- Flight_data_merged %>%
   mutate(PopRep = paste(Selection, PopReplicate, sep = "_")) %>% 
   mutate(PopRep = as.factor(PopRep)) %>% 
   mutate(log_StartFlies = log(Flies_per_run)) %>% 
-  select(Selection, Light_Status, Fan_Status, PopRep, log_StartFlies,
+  dplyr::select(Selection, Light_Status, Fan_Status, PopRep, log_StartFlies,
          ChamberNum, Fly_count)
 
 # run zero inflated negative binomial test
