@@ -1,5 +1,7 @@
 Big_data/
+Flight_Exp_Evo_1/Plots/ggplot_files
 
+*.[Rr][Dd][Ss]
 *.Rds
 .Rproj.user
 .Rhistory
