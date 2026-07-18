@@ -143,74 +143,90 @@ saveRDS(FF_genomes_filtered,
 
 UpSet plots and Venn diagrams
 
+Plots of unused filters are commented out.
+
 ```{r}
 filter_criteria <- c("rdepth_filter", "avgfreq_filter",
                      "rdepth_cons", "avgfreq_cons",
                      "rdepth_lib", "filtfreq")
 
-# upset plot: balanced filters
-bal_upset <- FF_filter_status %>% 
-  dplyr::select(rdepth_filter, avgfreq_filter) %>% 
-upset(
-  filter_criteria[1:2],
-  name = "Filters Applied",
-  sort_intersections_by = 'degree',
-  base_annotations = list(
-    "Intersection size" = intersection_size(
-      mapping = aes(fill = intersection)
-    ) + theme(legend.position = "none")
-  )
-)
+# # upset plot: balanced filters
+# bal_upset <- FF_filter_status %>% 
+#   dplyr::select(rdepth_filter, avgfreq_filter) %>% 
+# upset(
+#   filter_criteria[1:2],
+#   name = "Filters Applied",
+#   sort_intersections_by = 'degree',
+#   base_annotations = list(
+#     "Intersection size" = intersection_size(
+#       mapping = aes(fill = intersection)
+#     ) + theme(legend.position = "none")
+#   )
+# )
+# 
+# # upset plot: conservative filters
+# cons_upset <- FF_filter_status %>% 
+#   dplyr::select(rdepth_cons, avgfreq_cons) %>% 
+# upset(
+#   filter_criteria[3:4],
+#   name = "Filters Applied",
+#   sort_intersections_by = 'degree',
+#   base_annotations = list(
+#     "Intersection size" = intersection_size(
+#       mapping = aes(fill = intersection)
+#     ) + theme(legend.position = "none")
+#   )
+# )
+# 
+# # upset plot: liberal filters
+# lib_upset <- FF_filter_status %>% 
+#   dplyr::select(rdepth_lib, filtfreq) %>% 
+# upset(
+#   filter_criteria[5:6],
+#   name = "Filters Applied",
+#   sort_intersections_by = 'degree',
+#   base_annotations = list(
+#     "Intersection size" = intersection_size(
+#       mapping = aes(fill = intersection)
+#     ) + theme(legend.position = "none")
+#   )
+# )
+# 
+# print(bal_upset)
+# print(cons_upset)
+# print(lib_upset)
+# 
 
-# upset plot: conservative filters
-cons_upset <- FF_filter_status %>% 
-  dplyr::select(rdepth_cons, avgfreq_cons) %>% 
-upset(
-  filter_criteria[3:4],
-  name = "Filters Applied",
-  sort_intersections_by = 'degree',
-  base_annotations = list(
-    "Intersection size" = intersection_size(
-      mapping = aes(fill = intersection)
-    ) + theme(legend.position = "none")
-  )
-)
-
-# upset plot: liberal filters
-lib_upset <- FF_filter_status %>% 
-  dplyr::select(rdepth_lib, filtfreq) %>% 
-upset(
-  filter_criteria[5:6],
-  name = "Filters Applied",
-  sort_intersections_by = 'degree',
-  base_annotations = list(
-    "Intersection size" = intersection_size(
-      mapping = aes(fill = intersection)
-    ) + theme(legend.position = "none")
-  )
-)
-
+set_labels <- c("rdepth_filter" = "Depth filter",
+                "filtfreq" = "Frequency filter")
 # upset plot: final used filters: rdepth_filter, filtfreq
-filters_upset <- FF_filter_status %>% 
-  dplyr::select(rdepth_filter, filtfreq) %>% 
+filters_upset <- FF_filter_status %>%
+  dplyr::select(rdepth_filter, filtfreq) %>%
 upset(
   filter_criteria[c(1, 6)],
   name = "Filters Applied",
   sort_intersections_by = 'degree',
+  set_sizes = FALSE,
+  labeller = as_labeller(set_labels),
   base_annotations = list(
-    "Intersection size" = intersection_size(
+    "SNP count" = intersection_size(
       mapping = aes(fill = intersection)
-    ) + theme(legend.position = "none")
+    ) + theme(legend.position = "none",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.text.y = element_blank(),
+          )
   )
-)
+) + theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
 
-print(bal_upset)
-print(cons_upset)
-print(lib_upset)
+
 print(filters_upset)
 ```
 
 #### Plot read depth and allele frequency with different filtering criteria
+
+The plots of filters not being used are commented out, to save memory.
 
 ```{r}
 FF_plots <- FF_filter_status %>%
@@ -225,65 +241,87 @@ pivot_longer(
   # this leaves freq_CON1, N_CON1, and so on.
   mutate(Population = str_remove(Population, "_.*")) 
 
-d_bal <- FF_plots %>% 
+# Depth filter used in analyses
+depth_filter_plot <- FF_plots %>% 
   ggplot(aes(x = log10(depth_), fill = rdepth_filter)) +
   facet_grid(rdepth_filter ~ .) +
   geom_histogram(aes(y = after_stat(log10(count + 1))),
        color = 'white', bins = 30) + 
   geom_vline(xintercept = log10(c(min_depth, max_depth)), color = 'darkgrey', linetype = 'dashed') +
+  scale_fill_brewer(palette = 'Set1') +
+  labs(x = "log10(read_depth)", fill = "Site within criteria") +
   theme_cowplot()
 
-print(d_bal)
+print(depth_filter_plot)
 
-d_lib <- FF_plots %>% 
-  ggplot(aes(x = log10(depth_), fill = rdepth_lib)) +
-  facet_grid(rdepth_lib ~ .) +
-  geom_histogram(aes(y = after_stat(log10(count + 1))),
-       color = 'white', bins = 30) + 
-  geom_vline(xintercept = log10(c(min_depth, max_depth)), color = 'darkgrey', linetype = 'dashed') +
-  theme_cowplot()
+# d_lib <- FF_plots %>% 
+#   ggplot(aes(x = log10(depth_), fill = rdepth_lib)) +
+#   facet_grid(rdepth_lib ~ .) +
+#   geom_histogram(aes(y = after_stat(log10(count + 1))),
+#        color = 'white', bins = 30) + 
+#   geom_vline(xintercept = log10(c(min_depth, max_depth)), color = 'darkgrey', linetype = 'dashed') +
+#   theme_cowplot()
+# 
+# print(d_lib)
+# 
+# d_cons <- FF_plots %>% 
+#   ggplot(aes(x = log10(depth_), fill = rdepth_cons)) +
+#   facet_grid(rdepth_cons ~ .) +
+#   geom_histogram(aes(y = after_stat(log10(count + 1))),
+#        color = 'white', bins = 30) + 
+#   geom_vline(xintercept = log10(c(30, 300)), color = 'darkgrey', linetype = 'dashed') +
+#   theme_cowplot()
+# 
+# print(d_cons)
 
-print(d_lib)
-
-d_cons <- FF_plots %>% 
-  ggplot(aes(x = log10(depth_), fill = rdepth_cons)) +
-  facet_grid(rdepth_cons ~ .) +
-  geom_histogram(aes(y = after_stat(log10(count + 1))),
-       color = 'white', bins = 30) + 
-  geom_vline(xintercept = log10(c(30, 300)), color = 'darkgrey', linetype = 'dashed') +
-  theme_cowplot()
-
-print(d_cons)
-
+# Frequency filter used in analyses
 freqfilt_plot <- FF_plots %>% 
   ggplot(aes(x = freq_, fill = filtfreq)) +
   facet_grid(filtfreq ~ .) +
   geom_histogram(aes(y = after_stat(log10(count + 1))),
        color = 'white', bins = 30) + 
-  geom_vline(xintercept = c(0.02, 0.98), color = 'darkgrey', linetype = 'dashed') +
+  geom_vline(xintercept = c(0.02, 0.98), color = 'darkgrey', linetype = 'dashed') + 
+  scale_fill_brewer(palette = 'Set1') +
+  labs(x = "Allele frequency", fill = "Site within criteria") +
   theme_cowplot()
 
 print(freqfilt_plot)
 
-f_bal_low <- FF_plots %>% filter(freq_ < 0.1) %>% 
-  ggplot(aes(x = freq_, fill = avgfreq_filter)) +
-  facet_grid(avgfreq_filter ~.) +
-  geom_histogram(aes(y = after_stat(log10(count + 1))),
-                     color = 'white', bins = 30) + 
-  geom_vline(xintercept = min_avgfreq, color = 'darkgrey', linetype = 'dashed') +
-  theme_cowplot()
+# f_bal_low <- FF_plots %>% filter(freq_ < 0.1) %>% 
+#   ggplot(aes(x = freq_, fill = avgfreq_filter)) +
+#   facet_grid(avgfreq_filter ~.) +
+#   geom_histogram(aes(y = after_stat(log10(count + 1))),
+#                      color = 'white', bins = 30) + 
+#   geom_vline(xintercept = min_avgfreq, color = 'darkgrey', linetype = 'dashed') +
+#   theme_cowplot()
+# 
+# print(f_bal_low)
+# 
+# f_bal_high <- FF_plots %>% filter(freq_ > 0.9) %>% 
+#   ggplot(aes(x = freq_, fill = avgfreq_filter)) +
+#   facet_grid(avgfreq_filter ~.) +
+#   geom_histogram(aes(y = after_stat(log10(count + 1))),
+#                      color = 'white', bins = 30) + 
+#   geom_vline(xintercept = max_avgfreq, color = 'darkgrey', linetype = 'dashed')+
+#   theme_cowplot()
+# 
+# print(f_bal_high)
+```
 
-print(f_bal_low)
+### Patchwork filters plots
 
-f_bal_high <- FF_plots %>% filter(freq_ > 0.9) %>% 
-  ggplot(aes(x = freq_, fill = avgfreq_filter)) +
-  facet_grid(avgfreq_filter ~.) +
-  geom_histogram(aes(y = after_stat(log10(count + 1))),
-                     color = 'white', bins = 30) + 
-  geom_vline(xintercept = max_avgfreq, color = 'darkgrey', linetype = 'dashed')+
-  theme_cowplot()
+```{r}
+filters_fig <- depth_filter_plot/freqfilt_plot
 
-print(f_bal_high)
+print(filters_fig)
+```
+
+### Save plot and plot data
+
+```{r}
+# saveRDS(filters_upset, "../../Plots/ggplot_files/filters_upset.RDS")
+
+ggsave(filters_upset, filename = "../../Plots/filter_upset.jpeg", dpi = 400, width = 6, height = 6)
 ```
 
 #### Scanplots by chromosome
