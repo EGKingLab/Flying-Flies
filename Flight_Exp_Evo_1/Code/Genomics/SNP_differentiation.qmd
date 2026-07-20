@@ -13,6 +13,7 @@ Also sets the cowplot theme
 ```{r}
 library(tidyverse)
 library(cowplot)
+library(patchwork)
 
 theme_set(theme_cowplot())
 
@@ -49,16 +50,16 @@ SNPdiff_data$qb_w_adjPval <- p.adjust(SNPdiff_data$qb_w_Pval, method = 'fdr')
 
 
 
+# linear model: non-adjusted p-values
 plot_lm_Pval <- ggplot(data = SNPdiff_data, aes(
 x = POS, y = -log10(lm_Pval), size = -log10(lm_Pval))) +
-  facet_grid(.~ CHROM) +
+  facet_grid(.~ CHROM, scales = 'free_x', space = 'free_x') +
   geom_point(aes(color = CHROM), alpha = 0.5) +
   scale_size_area(max_size = 3) +
   scale_color_manual(
   values = rep(c("steelblue3", "skyblue"), 
                length(Xaxis_CHROM$CHROM))) +
-  ylab("-log10(LM: P Value)") +
-  xlab("Position") +
+  labs(y ="-log10(LM: P Value)", x = "Position") +
   geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
   geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
     theme(axis.text.x = element_blank(), legend.position = 'none')
@@ -167,6 +168,39 @@ print(plot_qb_w_adjPval)
 
 ```
 
+### Plot for publication: LM adjusted p-value
+
+```{r}
+# lm adjusted
+pltmanu_lm_adj <- ggplot(data = SNPdiff_data, aes(
+x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
+  facet_grid(.~ CHROM, scales = 'free_x', space = 'free_x',
+             switch = 'x') +
+  geom_point(aes(color = CHROM, alpha = -log10(lm_adjPval))) +
+  scale_size_area(max_size = 3) +
+  scale_color_manual(
+  values = rep(c("steelblue3", "skyblue"), 
+               length(Xaxis_CHROM$CHROM))) +
+  scale_alpha_continuous(range = c(0.05, 0.8)) +
+  labs(y = "-log10(Adjusted P-Value)",
+       x = "Chromosome Arm",
+       title = "Linear model: adjusted P-values") +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
+  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 3),
+    expand = expansion(mult = c(0, 0.05))) +
+  theme_cowplot() +
+  theme(axis.text.x = element_blank(), 
+          axis.ticks.x = element_blank(),
+          legend.position = 'none',
+          panel.spacing.x = unit(0, 'lines'), 
+          strip.background.x = element_blank(),
+        strip.placement = 'outside') 
+
+print(pltmanu_lm_adj)
+```
+
 #### Linear model: Plot P-values, read depth and allele frequency for target SNPs
 
 ```{r}
@@ -186,7 +220,7 @@ target_SNP_full <- full_join(target_SNP_full, target_SNPs)
 
 target_SNP_full <- target_SNP_full %>%
   dplyr::select(-REF, -ALT) %>% 
-  mutate("SNP_ID" = paste0(CHROM, POS, sep = '_')) %>% 
+  mutate("SNP_ID" = paste(CHROM, POS, sep = '_')) %>% 
   pivot_longer(
   cols = c(starts_with('freq_'), starts_with('N_')),
   names_to = c(".value", "Population"),
@@ -223,55 +257,82 @@ tSNP_resplot <- target_SNPs_pvals %>% filter(str_detect(Res, "adj")) %>%
   geom_hline(yintercept = -log10(0.05), color = 'red', linetype = 'dotted')+
   theme(axis.text.x = element_blank(), legend.position = "none")
 
+print(tSNP_resplot)
+
+chrom_labs <- c("2R" = "", "3L" = "3L", "3R" = "3R", "X" = "X")
 
 # Read depth plot
 depth_tSNP_plt <- ggplot() +
   geom_point(data = target_SNP_full, aes(
     x = SNP_ID, y = depth, color = Selection, shape = PopReplicate), 
-    alpha = 0.1) +
+    alpha = 0.2) +
   geom_segment(data = SNPdepth_segments, aes(
     x = SNP_ID, xend = SNP_ID, y = selmin, yend = selmax), 
     color = 'gray30', linewidth = 0.5, alpha = 0.8) +
-  facet_grid(.~CHROM, scales = "free_x", space = "free_x") +
+  facet_grid(.~CHROM, scales = "free_x", space = "free_x",
+          labeller = labeller(CHROM = as_labeller(chrom_labs))) +
   stat_summary(data = target_SNP_full, aes(
     x = SNP_ID, y = depth, color = Selection), 
-    fun = mean, size = 1.5, shape = '-') +
-   geom_hline(yintercept = 20, color = 'red', linetype = 'dotted') +
+    fun = mean, size = 1.8, shape = '-') +
+geom_hline(yintercept = 20, color = 'red', linetype = 'dotted') +
   scale_y_continuous(breaks = seq(0, 160, by = 20)) +
-  theme(axis.text.x = element_blank(),
+  theme(axis.text.x = 
+    element_text(angle = 315, size = 6, hjust = 0.1, vjust = 0.5),
   panel.background = element_rect(fill = 'grey98'),
   panel.spacing = unit(0.1, "lines")) +
-  labs(y = "Total read depth", x = "SNP_ID")
+  labs(y = "Read depth", x = "SNP_ID", shape = "Replicate")
+
+print(depth_tSNP_plt)
 
 # Frequency plot
 freq_tSNP_plt <- ggplot() +
   geom_point(data = target_SNP_full, aes(
-    x = SNP_ID, y = freq, color = Selection, shape = PopReplicate), 
-    alpha = 0.1) +
+  x = SNP_ID, y = freq, color = Selection, shape = PopReplicate), 
+    alpha = 0.2) +
   geom_segment(data = SNPfreq_segments, aes(
     x = SNP_ID, xend = SNP_ID, y = selmin, yend = selmax), 
     color = 'gray30', linewidth = 0.5, alpha = 0.8) +
-  facet_grid(.~CHROM, scales = "free_x", space = "free_x") +
+  facet_grid(.~CHROM, scales = "free_x", space = "free_x",
+          labeller = labeller(CHROM = as_labeller(chrom_labs))) +
   stat_summary(data = target_SNP_full, aes(
     x = SNP_ID, y = freq, color = Selection), 
-    fun = mean, size = 1.5, shape = '-') +
+    fun = mean, size = 1.8, shape = '-') +
   scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
-  theme(axis.text.x = element_blank(),
-  panel.grid.major.y = element_line(color = 'lightgray', linewidth = 0.5, linetype = 'dotted'),
+  theme_cowplot() +
+  theme(axis.text.x = 
+    element_text(angle = 315, size = 6, hjust = 0.1, vjust = 0.5),
+  panel.grid.major.y = 
+    element_line(
+      color = 'lightgray', linewidth = 0.5, linetype = 'dotted'),
   panel.background = element_rect(fill = 'grey98'),
-  panel.spacing = unit(0.1, "lines")) +
-  labs(y = "Reference allele frequency", x = "SNP_ID")
+  panel.spacing = unit(0.15, "lines")) +
+  labs(y = "Reference allele frequency", x = "SNP_ID", 
+       shape = "Replicate")
 
+print(freq_tSNP_plt)
+
+# allele frequency vs. read depth plot
 freq_depth_scatter <- ggplot() +
   geom_point(data = target_SNP_full, aes(
-    x = freq, y = depth, color = Selection, shape = PopReplicate)) + 
-  geom_hline(yintercept = 20, color = 'red', linetype = 'dotted')
+  y = freq, x = depth, color = Selection, shape = PopReplicate)) +
+  geom_vline(xintercept = 20, color = 'red', linetype = 'dotted')+
+  labs(x = "Read depth", y = "Allele frequency", 
+       shape = "Replicate")
 
 print(freq_depth_scatter)
 
-print(tSNP_resplot)
-print(depth_tSNP_plt)
-print(freq_tSNP_plt)
+```
+
+#### Assemble figure using patchwork
+
+```{r}
+lm_SNPs_fig <- pltmanu_lm_adj/free(freq_tSNP_plt, type = 'label')
+
+print(lm_SNPs_fig)
+
+depth_frq_SNPfig <- depth_tSNP_plt/freq_depth_scatter
+
+print(depth_frq_SNPfig)
 ```
 
 #### Save target SNPs
@@ -283,6 +344,16 @@ write_rds(file = "../../../Big_data/lm_adjpvals_SNPs.RDS")
 
 target_SNPs %>% dplyr::select(CHROM, POS, lm_adjPval) %>% 
 write_rds(file = "../../../Big_data/lm_targetSNPs.RDS")
+```
+
+#### Save plot
+
+```{r}
+ggsave(lm_SNPs_fig, filename = "../../Plots/lm_SNPs_fig.jpeg", dpi = 400, width = 8, height = 10)
+
+ggsave(depth_frq_SNPfig, 
+       filename = "../../Plots/depth_freq_SNPfig.jpeg", 
+       dpi = 400, width = 6, height = 6)
 ```
 
 ====================================================
