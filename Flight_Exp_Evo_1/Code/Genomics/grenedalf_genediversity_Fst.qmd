@@ -13,6 +13,7 @@ library(tidyverse)
 library(cowplot)
 library(emmeans)
 library(broom)
+library(patchwork)
 
 theme_set(theme_cowplot())
 
@@ -22,15 +23,15 @@ FF_genomes_filtered <- readRDS("../../../Big_data/FF_genomes_filtered.RDS")
 ## Process data for grenedalf
 
 ```{r}
-FF_grene_process <- FF_genomes_filtered #%>% 
-  # select(-REF, -ALT) %>% rename_with(
-    # Removes all text after the second underscore,
-    # used to remove _G13_sample...
-    # this leaves freq_CON1, N_CON1, and so on.
-  #~str_replace(., "^([^_]+_[^_]+)_.*$", "\\1"),
-  # exlude CHROM and POS columns for this rule
-  #.cols = !c(CHROM, POS)
-  #)
+FF_grene_process <- FF_genomes_filtered %>% 
+    dplyr::select(-Nmiss, -REF, -ALT) %>% rename_with(
+      # Removes all text after the second underscore,
+      # used to remove _G13_sample...
+      # this leaves freq_CON1, N_CON1, and so on.
+   ~str_replace(., "^([^_]+_[^_]+)_.*$", "\\1"),
+    # exlude CHROM and POS columns for this rule
+   .cols = !c(CHROM, POS)
+   )
 
 ```
 
@@ -82,15 +83,15 @@ system2(
 gene_div_out <- read_csv("../../../Big_data/grenedalf_diversity_out/diversity.csv")
 
 FF_diversity <- gene_div_out %>% 
-  select(chrom, start, end, total.passed, 
+  dplyr::select(chrom, start, end, total.passed, 
          matches("\\.(passed|theta_pi|theta_watterson|tajimas_d)"))
 ```
 
-### Plot $\theta_\pi$ measure of gene diversity (analog of heterozygosity across windows)
+### Plot $\theta_\pi$ measure of average nucleotide diversity (analog of heterozygosity across windows)
 
 ```{r}
 FF_thetapi <- FF_diversity %>% 
-  select(chrom, start, end,
+  dplyr::select(chrom, start, end,
     contains("theta_pi")) %>% 
   pivot_longer(cols = contains(".theta_pi"),
                names_pattern = "(.*)\\.theta_pi",
@@ -102,26 +103,49 @@ FF_thetapi <- FF_thetapi %>%
   patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")) %>% 
   mutate_at(c("Selection", "PopReplicate"), factor) %>% 
   filter(chrom %in% c("2L", "2R", "3L", "3R", "X")) %>% 
-  filter(!is.na(theta_pi))
+  filter(!is.na(theta_pi)) %>% drop_na()
   
+# box plot of all diversity values within a population
+thetapi_box <- ggplot(data = FF_thetapi, aes(x = Selection, y = theta_pi, color = Selection)) +
+  geom_boxplot(outliers = FALSE, alpha = 0.8) + 
+  geom_point(aes(shape = PopReplicate), alpha = 0.1,
+             position = position_dodge(width = 0.5)) +
+  labs(y = bquote("Nucleotide diversity (" ~ theta[pi] ~ ")"), shape = "Replicate") + theme_cowplot() 
 
-thetapi_box <- ggplot(data = FF_thetapi, aes(x = Selection, y = theta_pi, color = PopReplicate)) +
-  geom_boxplot()
+print(thetapi_box)
 
+# Scan of nucleotide diversity
 thetapi_scan <- ggplot(data = FF_thetapi, aes(
   x = start, y = theta_pi, color = Selection)) +
   facet_grid(chrom ~ .) +
-  geom_point(alpha = 0.5)
+  geom_point(alpha = 0.05)
   
-print(thetapi_box)
 print(thetapi_scan)
+
+# 
+# # Scanplot of FP/CON nucleotide diversity ratio
+# ratio_scan <- ggplot(data = thetapiratio, aes(x = start, y = RatioFPCON)) +
+#   facet_grid(.~chrom, scales = 'free_x', space = 'free_x') +
+#   geom_point(aes(color = OutlierRatio), alpha = 0.5) +
+#   scale_color_manual(
+#     values = c("FALSE" = 'grey30', "TRUE" = 'red'),
+#     labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
+#   labs(y = bquote("log2(" ~ theta[pi] ~ " Ratio (FP/CON))"),
+#        x = "Window start") + theme_cowplot() +
+#   theme(axis.text.x = element_blank(),
+#         legend.position = 'none')
+#   
+# print(ratio_scan)
+# 
+
 ```
 
 ### t-test of gene diversity per SNP and scanplot of p-values
 
 ```{r}
 FF_thetapi_test <- FF_thetapi %>% mutate("mid" = (1 + end)/2) %>% 
-  unite("wind_ID", chrom, mid, sep = "_", remove = TRUE) %>% select(-start, -end)
+  unite("wind_ID", chrom, mid, sep = "_", remove = TRUE) %>% 
+  dplyr::select(-start, -end)
 
 thetapi_models <- FF_thetapi_test %>% 
   group_by(wind_ID) %>% reframe(
@@ -130,7 +154,82 @@ thetapi_models <- FF_thetapi_test %>%
 
 thetapi_models$adjP <- p.adjust(thetapi_models$p.value, method = 'fdr')
 
-boxplot((thetapi_models$adjP))
+ggplot(data = thetapi_models, aes(y = -log10(adjP))) +
+  geom_boxplot() + 
+  geom_hline(yintercept = -log10(0.05), color = 'red') +
+  labs(y = "-log10(Adjusted P-value)", 
+       title = "LM: Gene Diversity") +
+  theme_cowplot() +
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+```
+
+## Watterson's theta
+
+Estimate of segregating sites, used to calculate mutation rate. Results have no variance, likely because no estimate of Ne was provided.
+
+```{r}
+FF_thetaW <- FF_diversity %>% 
+  dplyr::select(chrom, start, end,
+    contains("theta_watterson")) %>% 
+  pivot_longer(cols = contains(".theta_watterson"),
+               names_pattern = "(.*)\\.theta_watterson",
+               names_to = "Population",
+               values_to = "theta_W")
+
+FF_thetaW <- FF_thetaW %>% 
+  separate_wider_regex(cols = Population,
+  patterns = c("Selection" = ".*", "PopReplicate" = "\\d$")) %>% 
+  mutate_at(c("Selection", "PopReplicate"), factor) %>% 
+  filter(chrom %in% c("2L", "2R", "3L", "3R", "X")) %>% 
+  filter(!is.na(theta_W)) %>% drop_na()
+  
+# box plot of all thetaW diversity values within a population
+thetaW_box <- ggplot(data = FF_thetaW, aes(x = Selection, y = theta_W, color = Selection)) +
+  geom_boxplot(outliers = FALSE, alpha = 0.8) + 
+  geom_point(aes(shape = PopReplicate), alpha = 0.1,
+             position = position_dodge(width = 0.5)) +
+  labs(y = bquote("Nucleotide diversity (" ~ theta[W] ~ ")"), shape = "Replicate") + theme_cowplot() 
+
+print(thetaW_box)
+
+# Scan of nucleotide diversity
+thetaW_scan <- ggplot(data = FF_thetaW, aes(
+  x = start, y = theta_W, color = Selection)) +
+  facet_grid(chrom ~ .) +
+  geom_point(alpha = 0.05)
+  
+print(thetaW_scan)
+
+# Scan of FP/CON ratio of nucleotide diversity
+
+thetaWratio <- FF_thetaW %>% 
+  group_by(chrom, start, end) %>% 
+  summarise(mCON = mean(theta_W[Selection == 'CON']),
+            mFP = mean(theta_W[Selection == 'FP']),
+            RatioFPCON = log2(mFP/mCON))
+
+# Find 1% outliers, merge with thetapiratio
+Rlow <- quantile(thetaWratio$RatioFPCON, 0.01)
+Rhigh <- quantile(thetaWratio$RatioFPCON, 0.99)
+
+thetaWratio <- thetaWratio %>% 
+  mutate(OutlierRatio = RatioFPCON > Rhigh | RatioFPCON < Rlow)
+
+# Scanplot of FP/CON nucleotide diversity ratio
+Wratio_scan <- ggplot(data = thetaWratio, aes(x = start, y = RatioFPCON)) +
+  facet_grid(.~chrom, scales = 'free_x', space = 'free_x') +
+  geom_point(aes(color = OutlierRatio), alpha = 0.5) +
+  scale_color_manual(
+    values = c("FALSE" = 'grey30', "TRUE" = 'red'),
+    labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
+  labs(y = bquote("log2(" ~ theta[W] ~ " Ratio (FP/CON))"),
+       x = "Window start") + theme_cowplot() +
+  theme(axis.text.x = element_blank(),
+        legend.position = 'none')
+  
+print(Wratio_scan)
+
 ```
 
 ## Run grenedalf for population-pairwise Fst calculation
@@ -180,7 +279,7 @@ system2(
 fsthudson_out <- read_csv("../../../Big_data/grenedalf_fsthudson_out/fst.csv")
 
 FF_FstHudson <- fsthudson_out %>% 
-  select(chrom, start, end, total.passed,
+  dplyr::select(chrom, start, end, total.passed,
          matches("\\.(passed|fst)"))
 
 FF_FstHudson <- FF_FstHudson %>% pivot_longer(
@@ -196,7 +295,7 @@ FF_FstHudson <- FF_FstHudson %>% filter(fst >= 0)
 
 # if warning appears, it may be due to some SNPs not being passed (check missing or numeric columns in data). This would be due to the singleton/min.read depth filters applied in input.
 if (identical(FF_FstHudson$total.passed, FF_FstHudson$passed)){
-  FF_FstHudson <- FF_FstHudson %>% select(-total.passed)
+  FF_FstHudson <- FF_FstHudson %>% dplyr::select(-total.passed)
 } else {
   warning("Mismatch between passed values (total vs. specific comparison")
 }
@@ -260,7 +359,7 @@ FstHudson_htmp_mean <- ggplot(data = FF_FstHudson_mean,
     y = "Compared Population",
     fill = "Mean Fst",
     title = "Mean Fst (Hudson)"
-  )
+  ) + theme_cowplot()
 
 FstHudson_htmp_median <- ggplot(data = FF_FstHudson_median, 
     aes(x = Focal_pop, y = Comp_pop)) +
@@ -272,7 +371,7 @@ FstHudson_htmp_median <- ggplot(data = FF_FstHudson_median,
     y = "Compared Population",
     fill = "Median Fst",
     title = "Median Fst (Hudson)"
-  )
+  ) + theme_cowplot()
 
 print(FstHudson_htmp_mean)
 print(FstHudson_htmp_median)
@@ -364,7 +463,8 @@ print(FstHudson_boxplot)
 
 ```{r}
 FstH_testdata <- FF_FstHudson %>% mutate("mid" = (1 + end)/2) %>% 
-  unite("wind_ID", chrom, mid, sep = "_", remove = TRUE) %>% select(-start, -end)
+  unite("wind_ID", chrom, mid, sep = "_", remove = TRUE) %>% 
+  dplyr::select(-start, -end)
 
 
 FstH_lm <- FstH_testdata %>% 
@@ -404,14 +504,16 @@ for(ss in sigsites){
 }
 
 tukeyres <- bind_rows(tukeyres)
-tukeyres <- tukeyres %>% select(wind_ID, contrast, adj.p.value)
+tukeyres <- tukeyres %>% 
+  dplyr::select(wind_ID, contrast, adj.p.value)
 ```
 
 #### Scanplot of p-values with Fst comparisons
 
 ```{r}
 # Combine tibbles containing tukey pval with overall lm p val
-Pvalscandata <- FstH_lm %>% select(wind_ID, adjP) %>% 
+Pvalscandata <- FstH_lm %>% 
+  dplyr::select(wind_ID, adjP) %>% 
   left_join(tukeyres, by = "wind_ID") %>% 
   rename(pTukey = adj.p.value) %>% 
   mutate(sig_contrast = if_else(pTukey < 0.05, contrast, NA_character_)) %>%
@@ -421,12 +523,18 @@ Pvalscandata <- FstH_lm %>% select(wind_ID, adjP) %>%
     delim = "_",
     names = c("chromosome", "midwindow")) 
 
-ScanCvFnCvC <- Pvalscandata %>% filter(
-  sig_contrast == "CONvsCON - CONvsFP") %>% 
-  ggplot(aes(x = midwindow, y = -log10(adjP), color = sig_contrast)) +
-  facet_grid(. ~ chromosome) +
-  geom_point(alpha = 0.5) +
-  theme(axis.text.x = element_blank(), legend.position = "bottom")
+ScanCvFnCvC <- Pvalscandata %>% 
+  ggplot(aes(x = midwindow, y = -log10(adjP), 
+             color = sig_contrast, alpha = -log10(adjP))) +
+facet_grid(sig_contrast ~ chromosome, scales = 'free_x', space = 'free_x') +
+geom_point() + 
+  scale_alpha_continuous(range = c(0.05, 0.6)) +
+  #scale_size_continuous(max_size = 3) +
+  theme(axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank()) +
+  coord_cartesian(clip = 'off') +
+    labs(y = "-log10(Adjusted P-value", color = "Comparison")
 
 print(ScanCvFnCvC)
 ```
@@ -444,8 +552,10 @@ target_SNPs <- readRDS("../../../Big_data/lm_targetSNPs.RDS")
 Make plots
 
 ```{r}
-target_SNPs <- target_SNPs %>% select(CHROM, POS, lm_adjPval)
-FstHudson <- FF_FstHudson %>% select(chrom, start, end, fst, Comparison)
+target_SNPs <- target_SNPs %>% 
+  dplyr::select(CHROM, POS, lm_adjPval)
+FstHudson <- FF_FstHudson %>% 
+  dplyr::select(chrom, start, end, fst, Comparison)
 
 lmtarget_Fst <- left_join(FstHudson, target_SNPs,
                            by = join_by(
@@ -470,6 +580,97 @@ lmtarget_Fst_plot <- lmtarget_Fst %>%
   labs(x = "Window start", y = "Fst (Hudson)")
 
 print(lmtarget_Fst_plot)
+```
+
+## Combined plot of Nucleotide diversity and Fst (CONvsFP)
+
+```{r}
+# log2 FP/CON ratio of nucleotide diversity
+thetapiratio <- FF_thetapi %>% 
+  group_by(chrom, start, end) %>% 
+  summarise(mCON = mean(theta_pi[Selection == 'CON']),
+            mFP = mean(theta_pi[Selection == 'FP']),
+            RatioFPCON = log2(mFP/mCON))
+
+# Find 1% outliers, merge with thetapiratio
+Rlow <- quantile(thetapiratio$RatioFPCON, 0.01)
+Rhigh <- quantile(thetapiratio$RatioFPCON, 0.99)
+
+thetapiratio <- thetapiratio %>% 
+  mutate(OutlierRatio = RatioFPCON > Rhigh | RatioFPCON < Rlow)
+
+
+# Join Fst data (CONvsFP) with Nucleotide diversity ratio (FP/CON)
+thetapi_Fst <- lmtarget_Fst %>% 
+  filter(Comparison == "CONvsFP") %>% 
+  group_by(chrom, start, end, Comparison, POS, lm_adjPval, has_SNP) %>% summarise(mfst = mean(fst)) %>% 
+  left_join(thetapiratio, by = c("chrom", "start", "end"))
+
+# Calculate Fst outliers (CONvsFP)
+Flow <- quantile(thetapi_Fst$mfst, 0.01)
+Fhigh <- quantile(thetapi_Fst$mfst, 0.99)
+
+thetapi_Fst <- thetapi_Fst %>% 
+  mutate(OutlierFst = mfst > Fhigh | mfst < Flow)
+
+
+# Make theta_pi ratio plot again, with lm results integrated
+ratio_thetapi_plt <- ggplot(data = thetapi_Fst, aes(x = start, y = RatioFPCON)) +
+  facet_grid(.~chrom, scales = 'free_x', space = 'free_x',
+             switch = 'x') +
+  geom_vline(data = filter(thetapi_Fst, has_SNP),
+             aes(xintercept = start), color = 'grey50',
+             linewidth = 1.2, alpha = 0.2) +
+  geom_point(aes(color = OutlierRatio), alpha = 0.5) +
+  scale_color_manual(
+    values = c("FALSE" = 'steelblue', "TRUE" = 'red'),
+    labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
+  labs(y = bquote("log2(" ~ theta[pi] ~ " Ratio (FP/CON))"),
+       x = "Window start") + theme_cowplot() +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        legend.position = 'none',
+        strip.background.x = element_blank(),
+        strip.placement = 'outside')
+  
+print(ratio_thetapi_plt)
+
+# Make Fst CONvsFP plot, with lm results integrated
+mFst_lm_plt <- ggplot(data = thetapi_Fst, 
+                      aes(x = start, y = mfst )) +
+  facet_grid(.~chrom, scales = 'free_x', space = 'free_x',
+             switch = 'x') +
+  geom_vline(data = filter(thetapi_Fst, has_SNP),
+             aes(xintercept = start), color = 'grey50',
+             linewidth = 1.2, alpha = 0.2) +
+  geom_point(aes(color = OutlierFst), alpha = 0.5) +
+  scale_color_manual(
+    values = c("FALSE" = 'lightyellow3', "TRUE" = 'red'),
+    labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
+  labs(y = "Mean Fst (CON vs. FP)",
+       x = "Chromosome arm") + theme_cowplot() +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.position = 'none',
+        strip.background.x = element_blank(),
+        strip.placement = 'outside')
+  
+print(mFst_lm_plt)
+```
+
+### Figure for Publication
+
+```{r}
+fig_div_fst <- ratio_thetapi_plt/mFst_lm_plt
+
+print(fig_div_fst)
+```
+
+#### Save figure
+
+```{r}
+ggsave(fig_div_fst, filename = "../../Plots/div_fst_fig.jpeg", dpi = 400, width = 8, height = 10)
 ```
 
 ==============================================
@@ -517,7 +718,7 @@ system2(
 fstnei_out <- read_csv("../../../Big_data/grenedalf_fstnei_out/fst.csv")
 
 FF_FstNei <- fstnei_out %>% 
-  select(chrom, start, end, total.passed,
+  dplyr::select(chrom, start, end, total.passed,
          matches("\\.(passed|fst)"))
 
 FF_FstNei <- FF_FstNei %>% pivot_longer(
@@ -529,7 +730,7 @@ FF_FstNei <- FF_FstNei %>% pivot_longer(
 )
 
 if (identical(FF_FstNei$total.passed, FF_FstNei$passed)){
-  FF_FstNei <- FF_FstNei %>% select(-total.passed)
+  FF_FstNei <- FF_FstNei %>% dplyr::select(-total.passed)
 } else {
   stop("Mismatch between passed values (total vs. specific comparison")
 }
@@ -593,7 +794,7 @@ FstNei_htmp_mean <- ggplot(data = FF_FstNei_mean,
     y = "Compared Population",
     fill = "Mean Fst",
     title = "Mean Fst (Nei)"
-  )
+  ) + theme_cowplot()
 
 FstNei_htmp_median <- ggplot(data = FF_FstNei_median, 
     aes(x = Focal_pop, y = Comp_pop)) +
@@ -605,7 +806,7 @@ FstNei_htmp_median <- ggplot(data = FF_FstNei_median,
     y = "Compared Population",
     fill = "Median Fst",
     title = "Median Fst (Nei)"
-  )
+  ) + theme_cowplot()
 
 print(FstNei_htmp_mean)
 print(FstNei_htmp_median)
@@ -641,4 +842,12 @@ FstNei_scanplots <- FF_FstNei %>%
 print(FstNei_scanplots)
 ```
 
-### 
+### Assemble heat maps and save figure
+
+```{r}
+Fst_heatmp_fig <- FstHudson_htmp_mean/FstNei_htmp_mean
+
+print(Fst_heatmp_fig)
+
+ggsave(Fst_heatmp_fig, filename = "../../Plots/Fst_heatmp_fig.jpeg", dpi = 400, width = 8, height = 10)
+```
