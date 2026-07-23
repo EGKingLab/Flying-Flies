@@ -19,6 +19,8 @@ library(biomaRt)
 library(org.Dm.eg.db)
 library(TxDb.Dmelanogaster.UCSC.dm6.ensGene)
 
+library(patchwork)
+
 HapO_adjpvals <- readRDS("../../../Big_data/hap_pvals_adj.RDS")
 # prefix CHROM names with "chr" to match the genes database chromosome names.
 HapO_adjpvals <- HapO_adjpvals %>% mutate(CHROM = paste0("chr", CHROM))
@@ -134,5 +136,31 @@ GO_simple <- simplify(GO_results)
 
 final_GO <- as.data.frame(GO_simple)
 
-dotplot(GO_simple, showCategory = 21)
+Hap_enrich_plt <- dotplot(GO_simple, showCategory = 21)
+
+print(Hap_enrich_plt)
+```
+
+### Assemble enrich plot with framework
+
+Load SNP enrich plot
+
+```{r}
+SNP_enrich_plt <- readRDS(
+  "../../Plots/ggplot_files/SNP_enrich_plt.RDS")
+```
+
+Assemble enrichment plot
+
+```{r}
+enrich_fig <- SNP_enrich_plt/Hap_enrich_plt
+
+print(enrich_fig)
+```
+
+Save plot
+
+```{r}
+ggsave(enrich_fig, filename = "../../Plots/enrich_fig.jpeg", 
+       dpi = 400, width = 8, height = 10)
 ```
