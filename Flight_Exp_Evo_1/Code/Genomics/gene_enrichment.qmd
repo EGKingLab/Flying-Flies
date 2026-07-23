@@ -134,5 +134,13 @@ GO_simple <- simplify(GO_results)
 
 final_GO <- as.data.frame(GO_simple)
 
-dotplot(GO_simple, showCategory = 21)
+SNP_enrich_plt <- dotplot(GO_simple, showCategory = 21)
+
+print(SNP_enrich_plt)
+```
+
+### Save ggplot data
+
+```{r}
+saveRDS(SNP_enrich_plt, "../../Plots/ggplot_files/SNP_enrich_plt.RDS")
 ```
