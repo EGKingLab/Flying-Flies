@@ -153,7 +153,10 @@ SNP_enrich_plt <- readRDS(
 Assemble enrichment plot
 
 ```{r}
-enrich_fig <- SNP_enrich_plt/Hap_enrich_plt
+enrich_fig <- SNP_enrich_plt/Hap_enrich_plt + 
+  plot_annotation(
+  title = "Gene ontology and enrichment",
+  tag_levels = 'A')
 
 print(enrich_fig)
 ```
