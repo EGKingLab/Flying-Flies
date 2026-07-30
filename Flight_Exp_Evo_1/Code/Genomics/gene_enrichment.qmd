@@ -139,6 +139,20 @@ SNP_enrich_plt <- dotplot(GO_simple, showCategory = 21)
 print(SNP_enrich_plt)
 ```
 
+#### Extract definitions of Biological Process GO terms
+
+```{r}
+SNP_enrich_defs <- as_tibble(GO_simple)
+
+SNP_enrich_defs$Definitions <- sapply(SNP_enrich_defs$ID, function(id) {
+  def <- Definition(GO.db::GOTERM[id])
+  if (is.null(def)) return(NA) else return(def)
+})
+
+SNP_enrich_defs <- SNP_enrich_defs %>% 
+  dplyr::select(ID, Description, Definitions)
+```
+
 ### Save ggplot data
 
 ```{r}

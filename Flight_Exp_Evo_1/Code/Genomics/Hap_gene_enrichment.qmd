@@ -141,6 +141,20 @@ Hap_enrich_plt <- dotplot(GO_simple, showCategory = 21)
 print(Hap_enrich_plt)
 ```
 
+#### Extract definitions of Biological Process GO terms
+
+```{r}
+Hap_enrich_defs <- as_tibble(GO_simple)
+
+Hap_enrich_defs$Definitions <- sapply(Hap_enrich_defs$ID, function(id) {
+  def <- Definition(GO.db::GOTERM[id])
+  if (is.null(def)) return(NA) else return(def)
+})
+
+Hap_enrich_defs <- Hap_enrich_defs %>% 
+  dplyr::select(ID, Description, Definitions)
+```
+
 ### Assemble enrich plot with framework
 
 Load SNP enrich plot
