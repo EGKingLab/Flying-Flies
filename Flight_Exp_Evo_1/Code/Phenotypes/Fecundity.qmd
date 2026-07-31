@@ -17,6 +17,10 @@ library(cowplot)
 library(AICcmodavg)
 library(lmerTest)
 library(nlme)
+library(gt)
+library(modelsummary)
+library(patchwork)
+library(officer)
 
 theme_set(theme_cowplot())
 ```
@@ -52,36 +56,56 @@ Fit full model (with 3 replicates per treatment combination)
 NOTE: lmer can't fit model with plates nested within population replicates, because there is no replication within plate readings.
 
 ```{r}
-fit_Fec <- lmer(data = Fecund_data, REML = TRUE,
-  Ind_Fec ~ Selection + (1|PopRep))
+# -log transform of fecundity, convert plate to factor
+Fecund_data <- Fecund_data %>% mutate(log_Fec = -(log(Ind_Fec + 0.00001)), Plate = factor(Plate))
 
-anova(fit_Fec)
-eta_squared(fit_Fec)
+custom_names <- c("Selection", "Selection * Plate")
+# AIC
+aic_fec <- aictab(cand.set = list(
+  lmer(data = Fecund_data, REML = FALSE,
+                    log_Fec ~ Selection + (1|PopRep)),
+  lmer(data = Fecund_data, REML = FALSE,
+        log_Fec ~ Selection * Plate + (1|PopRep))
+), modnames = custom_names)
 
-Fecund_data <- Fecund_data %>% mutate(log_Fec = -(log(Ind_Fec + 0.00001)))
+print(aic_fec)
+
+# AIC results show that the model with only selection has greater weight than the model with selection and plate
+
+
 # log transformed analysis
 fit_Fec_log <- lmer(data = Fecund_data, REML = TRUE,
                     log_Fec ~ Selection + (1|PopRep))
 
-anova(fit_Fec_log)
-eta_squared(fit_Fec_log)
+a_fit_Fec_log <- anova(fit_Fec_log)
+e_fit_Fec_log <- eta_squared(fit_Fec_log)
+c_fit_Fec_log <- cohens_f(fit_Fec_log)
+e_fit_Fec_log <- left_join(e_fit_Fec_log, c_fit_Fec_log, by = "Parameter")
 
-fit_Fec_logplate <- lmer(data = Fecund_data, REML = TRUE,
-        log_Fec ~ Selection * factor(Plate) + (1|PopRep))
+# fit_Fec_logplate <- lmer(data = Fecund_data, REML = TRUE,
+#         log_Fec ~ Selection * Plate + (1|PopRep))
+# 
+# a_fit_Fec_logplate <-anova(fit_Fec_logplate)
+# e_fit_Fec_logplate <- eta_squared(fit_Fec_logplate)
 
-anova(fit_Fec_logplate)
-eta_squared(fit_Fec_logplate)
+# per capita fecundity ANOVA
+fit_Fec <- lmer(data = Fecund_data, REML = TRUE,
+  Ind_Fec ~ Selection + (1|PopRep))
+
+a_fit_Fec <- anova(fit_Fec)
+e_fit_Fec <- eta_squared(fit_Fec)
+
 ```
 
 ## Plots
 
 ```{r}
-fec_plot <- ggplot(data = Fecund_data, aes(x = Selection, y = Ind_Fec)) +
-  geom_boxplot(color = 'darkblue',outlier.shape = NA) + 
+fec_plot <- ggplot(data = Fecund_data, aes(x = Selection, y = Ind_Fec, color = Selection)) +
+  geom_boxplot(outlier.shape = NA) + 
   geom_point(aes(shape = Replicate), 
              position = position_dodge(width = 0.5), 
-             size = 3, color = "steelblue", alpha = 0.5) + 
- stat_summary(fun = "mean", color = "red", shape = "-", size = 4)+
+             size = 3, alpha = 0.5) + 
+ stat_summary(fun = "mean", color = "black", shape = "-", size = 4)+
   labs(x = "Selection", y = "Fecundity in 2 hour window (per capita)")
 
 print(fec_plot)
@@ -93,14 +117,15 @@ print(fec_plot)
 fec_pop <- ggplot(data = Fecund_data) + geom_point(aes(x = PopFemales, y = Fecundity, color = Selection), size = 5, alpha = 0.5) + 
   geom_point(aes(x = PopFemales, y = Fecundity, shape = factor(Plate)), color = 'black', size = 4) +
   scale_shape_manual(values = c("1", "2", "3")) +
-  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') + theme_cowplot()
+  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') + theme_cowplot() + guides(shape = 'none') + labs(x = "Population Size (Females)")
+                                                            
 
 indfec_plates <- ggplot(data = Fecund_data, 
   aes(x = factor(Plate), y = Ind_Fec)) + 
   geom_point(aes(color = Selection, shape = Replicate, 
           group = Selection), 
           size = 3, position = position_dodge(width=0.4)) + 
-  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') + labs(x = 'Plate') + theme_cowplot()
+  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') + labs(x = 'Plate', y = "Fecundity in 2 hour window (per capita)") + theme_cowplot()
 
 print(fec_pop)
 print(indfec_plates)
@@ -109,8 +134,8 @@ print(indfec_plates)
 #### Analyses of total fecundity, effect of plates
 
 ```{r}
-totfec_data <- Fecund_data %>% group_by(Selection, Replicate) %>% summarise(TotFec = sum(Fecundity), TotF = mean(TotF)) %>%
-  mutate(Ind_totFec = TotFec/TotF)
+# totfec_data <- Fecund_data %>% group_by(Selection, Replicate) %>% summarise(TotFec = sum(Fecundity), TotF = mean(TotF)) %>%
+#   mutate(Ind_totFec = TotFec/TotF)
 
 # totfecbypop_mod <- lm(data = totfec_data, 
 #                       formula = TotFec ~ TotF)
@@ -126,18 +151,18 @@ names(corr_fecpop) <- levels(Fecund_data$Selection)
 print(corr_fecpop$CON)
 print(corr_fecpop$FP)
 
-totFbySel <- lm(data = totfec_data, 
-                formula = TotF ~ Selection)
-
-anova(totFbySel)
-
-totIndfec_mod <- lm(data = totfec_data,
-                    formula = Ind_totFec ~ Selection)
-
-anova(totIndfec_mod)
-
-ggplot(data = totfec_data) + 
-  geom_point(aes(x = Selection, y = Ind_totFec, shape = Replicate), position = position_jitter(width = 0.1)) + theme_cowplot()
+# totFbySel <- lm(data = totfec_data, 
+#                 formula = TotF ~ Selection)
+# 
+# anova(totFbySel)
+# 
+# totIndfec_mod <- lm(data = totfec_data,
+#                     formula = Ind_totFec ~ Selection)
+# 
+# anova(totIndfec_mod)
+# 
+# ggplot(data = totfec_data) + 
+#   geom_point(aes(x = Selection, y = Ind_totFec, shape = Replicate, color = Selection), position = position_jitter(width = 0.1)) + theme_cowplot()
 ```
 
 #### Save fecundity plot
@@ -147,4 +172,54 @@ ggplot(data = totfec_data) +
 
 # Save plot data
 saveRDS(fec_plot, file = "../../Plots/ggplot_files/fec_plot.RDS")
+
+# assemble supplementary figure
+Fec_supp_fig <- fec_pop/indfec_plates + 
+  plot_annotation(tag_levels = "A")
+
+print(Fec_supp_fig)
+
+# Save figure
+ggsave(Fec_supp_fig, filename = "../../Plots/fec_supp_fig.jpeg", 
+       dpi = 400, width = 8, height = 12)
+```
+
+#### Save tables
+
+```{r}
+# AIC model
+gt1 <- aic_fec %>% as.data.frame() %>% dplyr::select(
+  'Model formula' = Modnames, K, AICc, Delta_AICc,
+  'AICc weight' = AICcWt, LL
+) %>% datasummary_df(fmt = 3, output = 'gt') %>% 
+  tab_header(title = "AICc results for models fit for per capita fecundity")
+
+# model with log transformation: ANOVA
+gt2 <- a_fit_Fec_log %>% broom::tidy() %>% 
+  datasummary_df(fmt = 3, output = 'gt') %>% 
+  tab_header(title = "ANOVA results, log-transformed per capita fecundity")
+
+# eta-squared partial and cohens_f partial with fecundity log transformation
+gt3 <- e_fit_Fec_log  %>% 
+  datasummary_df(fmt = 3, output = 'gt') %>% 
+  tab_header(title = "Partial Eta-squared value, log-transformed per capita fecundity")
+
+# model without log transformation: ANOVA
+gt4 <- a_fit_Fec %>% broom::tidy() %>% 
+  datasummary_df(fmt = 3, output = 'gt') %>% 
+  tab_header(title = "ANOVA results, per capita fecundity")
+
+
+# correlation of total female population size and total fecundity
+# CON correlation
+CON_corr <- gt(tidy(corr_fecpop[[1]])) %>% 
+  tab_header(title = "Correlation of female population size and total fecundity: CON")
+  
+# FP correlation
+FP_corr <- gt(tidy(corr_fecpop[[2]])) %>% 
+  tab_header(title = "Correlation of female population size and total fecundity: FP")
+
+# Save all tables into a single docx
+gt_group(gt1, gt2, gt3, gt4, CON_corr, FP_corr) %>% 
+  gtsave("../../Tables/fecundity_tables.docx")
 ```
