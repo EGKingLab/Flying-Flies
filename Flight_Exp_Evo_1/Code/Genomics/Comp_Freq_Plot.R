@@ -2,8 +2,18 @@ library(tidyverse)
 library(cowplot)
 theme_set(theme_cowplot())
 
+#fix or move?
+psnp2L <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diff2L.RDS"))
+psnp2R <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diff2R.RDS"))
+psnp3L <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diff3L.RDS"))
+psnp3R <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diff3R.RDS"))
+psnpX <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diffX.RDS"))
 
-ChArm <- "2L"
+psnp <- rbind(psnp2L,psnp2R,psnp3L,psnp3R,psnpX)
+psnp$Padj <- p.adjust(psnp$tue_Pval, "fdr")
+
+args <- commandArgs(TRUE)
+ChArm <- args[1]
 
 #get mean freq per haplotype
 #get difference from mean for each 
@@ -21,8 +31,8 @@ ffdiff[,ii,] <- ff[,ii,]-pmeans
 
 pp <- str_split(dimnames(ffdiff)[[1]], "_", simplify = TRUE)
 
-pp <- pp[10000:105000,]
-ffdiff <- ffdiff[10000:105000,,]
+#pp <- pp[100000:105000,]
+#ffdiff <- ffdiff[100000:105000,,]
 
 fdat_long <- data.frame("CHROM"= rep(pp[,1],times = 64),
                         "POS" = rep(as.integer(pp[,2]),times = 64),
@@ -96,15 +106,56 @@ fdat_long <- data.frame("CHROM"= rep(pp[,1],times = 64),
                                    ))
 
 
-hplot <- ggplot(fdat_long, aes(POS,Freq, color = Linetype)) +
-  geom_point(size = 0.2, alpha = 1/4) +
-  facet_grid(Haplotype ~.)
 
 #add snp
-#add sig spots. linetype for hap vs snp
+
+pool.snp <- readRDS(file = "/home/srikantv/Flying_Flies_Phenotyping/Big_data/FF_genomes_filtered.RDS")
+pool.snp <- pool.snp |>
+  filter(CHROM == ChArm)
+
+#filter(POS > 9660168 & POS < 10146271)
+
+freq.snp <- pool.snp |>
+  dplyr::select(starts_with("freq_"))
+
+mm <- rowMeans(freq.snp)
+
+#checked this does the diff correct
+sc.freq <- freq.snp - mm
+
+snp_rb <- data.frame("CHROM"= rep(pool.snp$CHROM, times = 8),
+                        "POS" = rep(pool.snp$POS, times = 8),
+                        "Pool" = rep(dimnames(ffdiff)[[3]],each=nrow(pool.snp)),
+                        "Linetype" = rep(c("FP","CON"),each = nrow(pool.snp)*4),
+                        "Haplotype" = rep("SNP",nrow(pool.snp)*8),
+                        "Freq" = c(sc.freq[,5],
+                                   sc.freq[,6],
+                                   sc.freq[,7],
+                                   sc.freq[,8],
+                                   sc.freq[,1],
+                                   sc.freq[,2],
+                                   sc.freq[,3],
+                                   sc.freq[,4]))
+
+fdat_long <- rbind(fdat_long, snp_rb)
+
+phap <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_Padj.Rds"))
+phap <- phap[phap$ChArm==ChArm & phap$Padj <= 0.05,]
+
+psnp <- psnp[psnp$CHROM==ChArm & psnp$Padj <= 0.05,]
+
+hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
+  geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5) +
+  geom_vline(xintercept = psnp$POS/1e6, linewidth = 2, color = "red") +
+  geom_point(size = 0.02, alpha = 1/8) +
+  facet_grid(Haplotype ~., scales = "free_y")
 
 ggsave(hplot, file = paste0("../../Plots/Comparison_Scan_",ChArm,".png"), width = 6.5, height = 6.5)
 
 
-
-
+#Rscript Comp_Freq_Plot.R 2L >temp1.txt 2>error1.txt &
+#Rscript Comp_Freq_Plot.R 2R >temp2.txt 2>error2.txt &
+#Rscript Comp_Freq_Plot.R 3L >temp3.txt 2>error3.txt &
+#Rscript Comp_Freq_Plot.R 3R >temp4.txt 2>error4.txt &
+#Rscript Comp_Freq_Plot.R X >temp5.txt 2>error5.txt &
+  

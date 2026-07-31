@@ -176,3 +176,15 @@ cat("overallscan")
 
 saveRDS(output, file = paste0("../../../Big_data/Haplotype_Inf/HapScan_", ChArm, ".Rds"))
 
+
+phap2L <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_2L.Rds"))
+phap2R <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_2R.Rds"))
+phap3L <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_3L.Rds"))
+phap3R <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_3R.Rds"))
+phapX <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_X.Rds"))
+
+phap <- rbind(phap2L,phap2R,phap3L,phap3R,phapX)
+phap$Padj <- 10^-phap$O_p
+
+saveRDS(phap[,c("ChArm","Ppos","MA_D","Padj")], file = paste0("../../../Big_data/Haplotype_Inf/HapScan_Padj.Rds"))
+
