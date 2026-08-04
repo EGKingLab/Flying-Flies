@@ -2,15 +2,8 @@ library(tidyverse)
 library(cowplot)
 theme_set(theme_cowplot())
 
-#fix or move?
-psnp2L <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diff2L.RDS"))
-psnp2R <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diff2R.RDS"))
-psnp3L <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diff3L.RDS"))
-psnp3R <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diff3R.RDS"))
-psnpX <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/SNP_diffX.RDS"))
 
-psnp <- rbind(psnp2L,psnp2R,psnp3L,psnp3R,psnpX)
-psnp$Padj <- p.adjust(psnp$tue_Pval, "fdr")
+psnp <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/lm_targetSNPs.RDS"))
 
 args <- commandArgs(TRUE)
 ChArm <- args[1]
@@ -142,13 +135,17 @@ fdat_long <- rbind(fdat_long, snp_rb)
 phap <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_Padj.Rds"))
 phap <- phap[phap$ChArm==ChArm & phap$Padj <= 0.05,]
 
-psnp <- psnp[psnp$CHROM==ChArm & psnp$Padj <= 0.05,]
+psnp <- psnp[psnp$CHROM==ChArm,]
 
 hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
-  geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5) +
-  geom_vline(xintercept = psnp$POS/1e6, linewidth = 2, color = "red") +
+  geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey20") +
+  geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.5, color = "gold") +
   geom_point(size = 0.02, alpha = 1/8) +
-  facet_grid(Haplotype ~., scales = "free_y")
+  facet_grid(Haplotype ~., scales = "free_y") +
+  xlab("Position (MB)") +
+  ylab("Frequency") +
+  scale_color_manual(name = "Selection",
+                     values = c("CON" = 'steelblue', "FP" = 'firebrick'))
 
 ggsave(hplot, file = paste0("../../Plots/Comparison_Scan_",ChArm,".png"), width = 6.5, height = 6.5)
 
