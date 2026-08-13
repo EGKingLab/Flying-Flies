@@ -4,6 +4,13 @@ theme_set(theme_cowplot())
 
 
 psnp <- readRDS(paste0("/home/srikantv/Flying_Flies_Phenotyping/Big_data/lm_targetSNPs.RDS"))
+phap <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_Padj.Rds"))
+
+psnp1 <- psnp
+colnames(psnp1)[1:2] <- c("ChArm","Ppos")
+pcmp <- left_join(psnp1, phap)
+
+
 
 args <- commandArgs(TRUE)
 ChArm <- args[1]
@@ -132,10 +139,11 @@ snp_rb <- data.frame("CHROM"= rep(pool.snp$CHROM, times = 8),
 
 fdat_long <- rbind(fdat_long, snp_rb)
 
-phap <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_Padj.Rds"))
 phap <- phap[phap$ChArm==ChArm & phap$Padj <= 0.05,]
 
 psnp <- psnp[psnp$CHROM==ChArm,]
+
+
 
 hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
   geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey20") +
