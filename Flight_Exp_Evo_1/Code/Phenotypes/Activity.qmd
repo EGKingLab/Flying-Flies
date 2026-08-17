@@ -1,0 +1,269 @@
+---
+title: "Activity"
+format: html
+editor: visual
+---
+
+# Activity Levels: Evolution of Flight Performance
+
+#### Load packages
+
+```{r}
+library(tidyverse)
+library(lmerTest)
+library(AICcmodavg)
+library(emmeans)
+library(cowplot)
+
+```
+
+#### Read data on activity levels
+
+```{r}
+act_raw <- read_csv("../../../Raw_data/Combined_tracks_FF_activity.csv")
+```
+
+### Description of data
+
+id: contains the following, separated by "\_":
+
+Date_Population_AssayRep_ActivityRun_TubeID
+
+Population: CON or FP, Population replicate 1, 2, 3, 4
+
+AssayRep: Each Population was assayed on two days. 'rep1' is day 1 of assay. 'rep2' is day 2 of assay. These should each be 2 weeks apart.
+
+ActivityRun: On each assay day, 3 separate runs were carried out. These are denoted by 'run1', 'run2', 'run3'.
+
+TubeID: A total of 32 tubes exist. Of these, tubes 0, 17, 18, and 25 were not used, and will be dropped from analyses and plots. Starting tube 1 onwards, each subsequent tube has alternating fly sex. Male-Female-Male-Female and so on.
+
+x, y: coordinates on a 2D plane. Tubes are aligned towards X-axis, thus it has larger magnitude shifts.
+
+d: distance traversed between frames.
+
+likelihood: ? filtering to keep \> 0.95. There are some unlikely frames with low likelihood (all flies \>500 d in a single frame).
+
+Second: time stamp
+
+Thermistor_Temp, Analog: 2 temperature sensors
+
+## Separate id column, wrangle data
+
+There were multiple plate locations that were unused.
+
+These were: tubes 0, 17, 18, and 25.
+
+From tubes 1 to 33, every alternating tube housed a female or male fly.
+
+Female: 1, 3, 5, 7, 9, 11, 13, 15, 19, 21, 23, 26, 28, 30, 32
+
+Male: 2, 4, 6, 8, 10, 12, 14, 16, 20, 22, 24, 27, 29, 31, 33
+
+15 female flies, 15 male flies per run.
+
+```{r}
+f_tubes <- c(1, 3, 5, 7, 9, 11, 13, 15, 19, 21, 23, 26, 28, 30, 32)
+m_tubes <- c(2, 4, 6, 8, 10, 12, 14, 16, 20, 22, 24, 27, 29, 31, 33)
+
+act_data <- act_raw %>% separate_wider_delim(
+  cols = id,
+  delim = '_',
+  names = c("Date", "Pop", "Assay_set", "Run", "Tube")) %>% 
+  separate_wider_regex(
+    cols = Pop,
+    patterns = c("Selection" = ".*", "PopReplicate" = "\\d$"),
+    cols_remove = FALSE
+    )  %>% 
+  rename(PopRep = Pop) %>% 
+  mutate(Tube = as.numeric(Tube)) %>% 
+  filter(!Tube %in% c(0, 17, 18, 25)) %>% 
+  mutate(
+    Sex = recode_values(
+      Tube,
+      f_tubes ~ "Female",
+      m_tubes ~ "Male"
+    )
+  ) %>% 
+  mutate_at(c("Selection", "PopReplicate", "PopRep", "Assay_set", "Run", "Sex"), factor) %>% 
+  mutate(Assay_set = fct_recode(Assay_set,
+                                "Set1" = "rep1",
+                                "Set2" = "rep2")) %>% 
+  filter(likelihood > 0.95)
+```
+
+## Analyze total distance traversed
+
+#### Calculate total distance
+
+```{r}
+act_dist <- act_data %>% group_by(Selection, PopReplicate, PopRep, Assay_set, Run, Sex, Tube) %>% 
+  summarise(Tot_d = sum(d))
+```
+
+#### Fit models for AICc
+
+```{r}
+# Only main effect of Selection
+distmod_sel <- lmer(data = act_dist, REML = FALSE,
+                    Tot_d ~ Selection + (1|PopRep))
+
+# Only main effect of Sex
+distmod_sex <- lmer(data = act_dist, REML = FALSE,
+                    Tot_d ~ Sex + (1|PopRep))
+
+# Additive model of Selection and Sex
+distmod_add <- lmer(data = act_dist, REML = FALSE,
+                    Tot_d ~ Selection + Sex + (1|PopRep))
+
+# Cross of Selection and Sex
+distmod_full <- lmer(data = act_dist, REML = FALSE,
+                    Tot_d ~ Selection * Sex + (1|PopRep))
+
+# Additive model with Assay_set as a fixed factor crossed with Selection
+distmod_add_set <- lmer(data = act_dist, REML = FALSE,
+Tot_d ~ Selection + Sex + Assay_set + Assay_set:Selection + (1|PopRep))
+
+# Full cross with Assay_set as a fixed factor crossed with Selection
+distmod_full_set <- lmer(data = act_dist, REML = FALSE,
+  Tot_d ~ Selection * Sex + Assay_set + Assay_set:Selection +
+    (1|PopRep))
+
+# The complete model with all terms crossed
+distmod_complete <- lmer(data = act_dist, REML = FALSE,
+  Tot_d ~ Selection * Sex * Assay_set + (1|PopRep))
+
+aictab(cand.set = 
+         list(distmod_sel, distmod_sex, distmod_add, distmod_full, distmod_add_set, distmod_full_set, distmod_complete))
+```
+
+The results of AICc indicate that the model with an additive design of Selection and Sex with additive Assay_set and an interaction of Assay_set:Selection has the most support, with nearly equivalent support for the model with the full cross of Selection and Sex with additive Assay_set and an interaction of Assay_set:Selection. Going forward, we will analyze the full cross of Selection and Sex, with additive Assay_set and interaction of Assay_set:Selection.
+
+Below results were for when only main effect of Assay_set was considered. Above results are when Assay_set is added as a main effect and crossed with Selection.
+
+(defunct, kept for posterity) AICc results indicate that an additive model of Selection and Sex has the most support, followed closely by both a full cross model of Selection and Sex as well as the full cross model with the addition of Assay_set. The largest model will be analyzed further to dissect the effects of various main and interaction effects.
+
+```{r}
+support_mod <- lmer(data = act_dist, REML = TRUE,
+  Tot_d ~ Selection * Sex + Assay_set + Selection:Assay_set + (1|PopRep))
+
+anova(support_mod)
+eta_squared(support_mod)
+cohens_f(support_mod)
+```
+
+Results show a significant main effect of both Selection and Sex. There are major differences in the direction of significance value and effect size due to sample size differences in the denominator used for F value.
+
+Results indicate that there are no significant effects of either the main effect of Assay_set or Selection:Sex. Both terms also have low effect sizes.
+
+The standout term is the interaction Selection:Assay_set, which is both significant and has a 5% eta-squared.
+
+## Plots of relevant factors
+
+```{r}
+# Main effect of Selection
+sel_plot <- act_dist %>% 
+  ggplot(aes(x = Selection, y = Tot_d, color = Selection)) +
+  geom_boxplot(outliers = FALSE, alpha = 0.5) +
+  geom_point(aes(shape = PopReplicate), alpha = 0.1, 
+             position = position_dodge(width = 0.5)) +
+  scale_color_manual(name = "Selection", 
+            values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  scale_shape_manual(name = "Replicate",
+            values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
+  stat_summary(fun = "mean", color = "black", 
+             shape = "-", size = 4) +
+  labs(y = "Total distance traversed (mm)") +
+  theme_cowplot()
+
+print(sel_plot)
+
+# Main effect of Sex
+sex_plot <- act_dist %>% 
+  ggplot(aes(x = Sex, y = Tot_d)) +
+  geom_boxplot(outliers = FALSE, alpha = 0.5) +
+  geom_point(aes(shape = PopReplicate), alpha = 0.1, 
+             position = position_dodge(width = 0.5)) +
+  scale_shape_manual(name = "Replicate",
+            values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
+  stat_summary(fun = "mean", color = "black", 
+             shape = "-", size = 4) +
+  labs(y = "Total distance traversed (mm)") +
+  theme_cowplot()
+
+print(sex_plot)
+
+# Complete plot: Selection and Sex
+cross_plot <- act_dist %>% ggplot(aes(x = Selection, y = Tot_d, color = Selection)) +
+  facet_grid(.~Sex) + 
+  geom_boxplot(outliers = FALSE, alpha = 0.5) +
+  geom_point(aes(shape = PopReplicate), alpha = 0.1, 
+             position = position_dodge(width = 0.5)) +
+  scale_color_manual(name = "Selection", 
+            values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  scale_shape_manual(name = "Replicate",
+            values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
+  stat_summary(fun = "mean", color = "black", 
+             shape = "-", size = 4) +
+  labs(y = "Total distance traversed (mm)") +
+  theme_cowplot()
+
+print(cross_plot)
+
+# Selection and Assay_set
+selset_plot <- act_dist %>% ggplot(aes(x = Selection, y = Tot_d, color = Selection)) +
+  facet_grid(.~ Assay_set) + 
+  geom_boxplot(outliers = FALSE, alpha = 0.5) +
+  geom_point(aes(shape = PopReplicate), alpha = 0.1, 
+             position = position_dodge(width = 0.5)) +
+  scale_color_manual(name = "Selection", 
+            values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  scale_shape_manual(name = "Replicate",
+            values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
+  stat_summary(fun = "mean", color = "black", 
+             shape = "-", size = 4) +
+  labs(y = "Total distance traversed (mm)") +
+  theme_cowplot()
+
+print(selset_plot)
+```
+
+#### Tukey test for Assay_set:Selection
+
+```{r}
+tukey_res <- emmeans(support_mod, pairwise ~ Selection:Assay_set,
+                     adjust = 'tukey')
+
+summary(tukey_res)
+```
+
+```{r}
+act_data %>% ggplot(aes(x = Second)) + geom_histogram()
+
+act_counts <- act_data %>% group_by(Selection, PopReplicate, Assay_set, Run, Tube) %>% summarise(N = n())
+```
+
+## Time spent moving, and speed calculations
+
+#### Time spent moving
+
+From Natalie's notes:
+
+"#the nest step is to look at the vids to compare when I think fly is moving vs graph of DLC thinks it is moving, determine what number of pixels changed is "moving" ##I decided that when d \>= 0.3, fly is "moving" ##then I quantify what amount of time each fly was moving"
+
+Once time difference between frames is calculated (see below), there are several frames which have a long time gap in between. We will filter out all
+
+Thus, d\>=0.3 will be assumed as fly movement. This will then be used to estimate time spent moving.
+
+```{r}
+# Classify if a fly is moving in a given frame, and then calculate the time difference between frames
+act_time <- act_data %>% mutate(
+  Moving = ifelse(d >= 0.3, "yes", "no")) %>% 
+  group_by(Selection, PopReplicate, PopRep, Assay_set, Run, Tube, Sex) %>% mutate(Time_diff = c(Second[1], diff(Second))) %>% 
+  ungroup()
+
+testabc <- act_time %>% filter(Time_diff > 0.7)
+
+# visualise the spread of time difference between frames
+act_time %>% ggplot(aes(x = Selection, y = Time_diff)) +
+  geom_boxplot()
+```
