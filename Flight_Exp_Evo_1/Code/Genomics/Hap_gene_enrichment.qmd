@@ -19,7 +19,9 @@ library(biomaRt)
 library(org.Dm.eg.db)
 library(TxDb.Dmelanogaster.UCSC.dm6.ensGene)
 
+library(cowplot)
 library(patchwork)
+library(ggrepel)
 
 HapO_adjpvals <- readRDS("../../../Big_data/hap_pvals_adj.RDS")
 # prefix CHROM names with "chr" to match the genes database chromosome names.
@@ -155,7 +157,164 @@ Hap_enrich_defs <- Hap_enrich_defs %>%
   dplyr::select(ID, Description, Definitions)
 ```
 
-### Assemble enrich plot with framework
+### Combination of SNP data with enriched biological pathways
+
+This code aims to combine a manhattan plot of significance with gene enrichment data.
+
+#### Get SNP positions for enriched pathways
+
+#### 
+
+```{r}
+# load final enrichment results, made separate rows for genes
+pathway_map <- final_GO %>% 
+  dplyr::select(ID, Description, geneID) %>% 
+  separate_rows(geneID, sep = "/") %>% 
+  rename(ensembl_gene_id = geneID, pathway_name = Description)
+
+# find overlaps between the significant sites and the genes database
+snp_genes <- findOverlaps(sig_gr, genes_data)
+
+# prepare a dataframe for joining
+snp_genes_df <- data.frame(
+  # snp id gets the snp number associated with a mapped gene.
+  # e.g. if it's the first SNP, snp_id will be '1'
+  snp_id = queryHits(snp_genes),
+  # get the ENSEMBL database gene id for mapped significant genes
+  ensembl_gene_id = genes_data$gene_id[subjectHits(snp_genes)])
+
+# combine 3 dataframes to get a dataset with SNP id and genes, pathways names
+snp_pathways_map <- sig_SNPs %>% 
+  # gives each signficant SNP its serial number, 1 onwards
+  mutate(snp_id = row_number()) %>%
+  # joins the mapped dataframe serial numbers with significant SNP
+  left_join(snp_genes_df, by = 'snp_id') %>% 
+  # joins the enriched pathways to the significant SNPs and their mapped genes
+  left_join(pathway_map, 
+      by = 'ensembl_gene_id', relationship = 'many-to-many') %>% 
+  mutate(symbol = mapIds(org.Dm.eg.db, keys = ensembl_gene_id,
+                         column = 'SYMBOL', keytype = 'ENSEMBL'))
+
+
+# remove 'chr' from CHROM names
+Full_SNP <- HapO_adjpvals %>% 
+  mutate(CHROM = gsub("^chr", "", CHROM))
+
+# cumulative positions per chromosome. used to plot continuous X
+chr_length <- Full_SNP %>% group_by(CHROM) %>% 
+  summarise(max_pos = max(POS), .groups = 'drop') %>% 
+  mutate(pos_add = lag(cumsum(as.numeric(max_pos)), 
+                       default = 0)) %>% 
+  dplyr::select(CHROM, pos_add)
+
+# convert SNP positions to cumulative positions across chrom
+Full_SNP <- Full_SNP %>% inner_join(chr_length, by = 'CHROM') %>% 
+  mutate(pos_cumul = POS + pos_add)
+ 
+# convert SNP positions to cumulative positions across chrom
+snp_pathways_map <- snp_pathways_map %>% 
+  mutate(CHROM = gsub("^chr", "", CHROM)) %>% 
+  inner_join(chr_length, by = 'CHROM') %>% 
+  mutate(pos_cumul = POS + pos_add)
+
+# filter out any SNPs that do not map to pathways
+snp_pathways <- snp_pathways_map %>% 
+                    filter(!is.na(pathway_name))
+
+# identify most significant SNP for each enriched pathway
+peak_snp_labels <- snp_pathways %>% 
+  group_by(pathway_name, symbol) %>%
+  # slices each pathway and symbol combination to only select the row (SNP) which has the lowest adjusted p-value
+  slice_min(order_by = .data[["adj_p"]], 
+  # single value, in case of ties (draws) in max value, 
+  # first n value is considered
+            n = 1, with_ties = FALSE) %>% ungroup() %>% 
+  # highlights only the distinct positions for each label
+  distinct(pos_cumul, symbol, .keep_all = TRUE) %>% 
+  # filters out the hundreds of possible labels by showing the top differentiated positions of haplotype differentiation
+  filter(adj_p < 0.01)
+
+# chromosome tick positions
+chrom_ticks <- Full_SNP %>% group_by(CHROM) %>% 
+  summarise(center_pos = (max(pos_cumul) + min(pos_cumul))/2,
+            .groups = 'drop')
+```
+
+#### Make the combined Manhattan plot
+
+```{r}
+Hap_sig_path_plot <- ggplot() +
+  # All SNP data, in grey background
+  geom_point(data = Full_SNP,
+             aes(x = pos_cumul, y = -log10(adj_p)), 
+             color = 'grey80', alpha = 0.2, size = 0.5) +
+  # significant SNPs color-coded by pathway names
+  geom_point(data = snp_pathways, 
+  aes(x = pos_cumul, y = -log10(adj_p),
+      color = pathway_name), size = 2, alpha = 0.9) +
+  # labels of gene symbols associated with the GO terms
+  geom_label_repel(data = peak_snp_labels,
+  aes(x = pos_cumul, y = -log10(adj_p), 
+      label = symbol, color = pathway_name), 
+  box.padding = 0.5, point.padding = 0.5, max.overlaps = 20,
+  size = 3.5, show.legend = FALSE) +
+  #scale_color_brewer(palette = 'Paired') +
+  scale_x_continuous(label = chrom_ticks$CHROM, 
+                     breaks = chrom_ticks$center_pos) +
+  labs(title = "Enriched Biological Processes and associated genes\nmapped to different haplotype compositions (CONvs.FP)",
+       x = "Chromosome", y = "-log10(adjusted P-value)",
+       color = "Enriched Biological Process") +
+  theme_cowplot() +
+  theme(legend.title = element_text(face = 'bold'))
+
+print(Hap_sig_path_plot)
+```
+
+```{r}
+heat_plot_data <- snp_pathways %>% 
+  mutate(symbol = sapply(symbol, 
+function(x) ifelse(length(x)>0, x[1], NA_character_))) %>% 
+  mutate(symbol = factor(symbol), 
+         pathway_name = factor(pathway_name)) %>% 
+  group_by(symbol, pathway_name) %>% 
+  summarise(sig_sites = n_distinct(pos_cumul), .groups = 'drop') %>%
+    filter(sig_sites >= quantile(sig_sites, 0.90))
+
+
+heat_plot_GO <- heat_plot_data %>% 
+  ggplot(aes(x = symbol, y = pathway_name, fill = sig_sites)) +
+  geom_tile(color = 'white', linewidth = 0.5) +
+  #geom_text(aes(label = sig_sites), 
+   #         color = 'black', fontface = 'bold', size = 4) +
+  scale_fill_viridis_c(option = 'plasma', direction = -1) +
+  labs(y = "Biological Process", x = "Gene Symbol", 
+    fill = "No. of Contributing \nGenomic Positions",
+    title = "Genes contributing to Enriched Biological Processes\n
+       (top 10% contributing genomic sites)") +
+  theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1))
+
+print(heat_plot_GO)
+```
+
+### Assemble plots with framework
+
+#### Scanplot + heatplot of genes and pathways
+
+```{r}
+hap_scan_GO_fig <- free(Hap_sig_path_plot)/free(heat_plot_GO) +
+  plot_layout(heights = c(2, 1), guides = 'keep') +
+  plot_annotation(
+  title = "Haplotype frequency differentiation: mapping GO terms",
+  tag_levels = 'A') 
+
+ggsave(hap_scan_GO_fig, filename = 
+         "../../Plots/hap_scan_GO_fig.jpeg", 
+       dpi = 400, width = 12, height = 12)
+
+```
+
+#### Enrich plots
 
 Load SNP enrich plot
 
@@ -169,15 +328,19 @@ Assemble enrichment plot
 ```{r}
 enrich_fig <- SNP_enrich_plt/Hap_enrich_plt + 
   plot_annotation(
-  title = "Gene ontology and enrichment",
+  title = "Gene Ontology and Enrichment Analyses",
   tag_levels = 'A')
 
 print(enrich_fig)
 ```
 
-Save plot
+### Save figures and tables
 
 ```{r}
 ggsave(enrich_fig, filename = "../../Plots/enrich_fig.jpeg", 
        dpi = 400, width = 8, height = 10)
+
+# GO terms mapped to SNP differentiation data
+ggsave(Hap_sig_path_plot, filename = "../../Plots/Hap_sig_path_plot.jpeg",
+       dpi = 400, width = 16, height = 10, bg = 'white')
 ```
