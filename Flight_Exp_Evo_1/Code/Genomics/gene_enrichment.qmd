@@ -9,7 +9,7 @@ editor: visual
 ## Load packages and SNP differentiation data
 
 ```{r}
-library(tidyverse)
+
 library(GenomicRanges)
 library(clusterProfiler)
 library(enrichplot)
@@ -18,6 +18,11 @@ library(biomaRt)
 
 library(org.Dm.eg.db)
 library(TxDb.Dmelanogaster.UCSC.dm6.ensGene)
+
+library(tidyverse)
+
+library(ggrepel)
+library(cowplot)
 
 SNP_lmadjpvals <- readRDS("../../../Big_data/lm_adjpvals_SNPs.RDS")
 # prefix CHROM names with "chr" to match the genes database chromosome names.
@@ -59,8 +64,9 @@ sig_overlaps <- subsetByOverlaps(genes_data, sig_gr)
 sig_gene_IDs <- unique(as.data.frame(sig_overlaps)$gene_id)
 sig_gene_df <- as.data.frame(sig_overlaps)
 
-sig_gene_df$symbol <- mapIds(org.Dm.eg.db, keys = sig_gene_df$gene_id,
-                             column = "SYMBOL", keytype = "ENSEMBL")
+sig_gene_df$symbol <- mapIds(org.Dm.eg.db, 
+                        keys = sig_gene_df$gene_id,
+                        column = "SYMBOL", keytype = "ENSEMBL")
 
 # This code takes the gene ranges data above (with SNPs mapped to genic coordinates),
 # and expands upon that by specifying which structure of the gene (exon, intron, etc.) 
@@ -153,8 +159,123 @@ SNP_enrich_defs <- SNP_enrich_defs %>%
   dplyr::select(ID, Description, Definitions)
 ```
 
-### Save ggplot data
+### Combination of SNP data with enriched biological pathways
+
+This code aims to combine a manhattan plot of significance with gene enrichment data.
+
+#### Get SNP positions for enriched pathways
 
 ```{r}
+# load final enrichment results, made separate rows for genes
+pathway_map <- final_GO %>% 
+  dplyr::select(ID, Description, geneID) %>% 
+  separate_rows(geneID, sep = "/") %>% 
+  rename(ensembl_gene_id = geneID, pathway_name = Description)
+
+# find overlaps between the significant sites and the genes database
+snp_genes <- findOverlaps(sig_gr, genes_data)
+
+# prepare a dataframe for joining
+snp_genes_df <- data.frame(
+  # snp id gets the snp number associated with a mapped gene.
+  # e.g. if it's the first SNP, snp_id will be '1'
+  snp_id = queryHits(snp_genes),
+  # get the ENSEMBL database gene id for mapped significant genes
+  ensembl_gene_id = genes_data$gene_id[subjectHits(snp_genes)])
+
+# combine 3 dataframes to get a dataset with SNP id and genes, pathways names
+snp_pathways_map <- sig_SNPs %>% 
+  # gives each signficant SNP its serial number, 1 onwards
+  mutate(snp_id = row_number()) %>%
+  # joins the mapped dataframe serial numbers with significant SNP
+  left_join(snp_genes_df, by = 'snp_id') %>% 
+  # joins the enriched pathways to the significant SNPs and their mapped genes
+  left_join(pathway_map, 
+      by = 'ensembl_gene_id', relationship = 'many-to-many') %>% 
+  mutate(symbol = mapIds(org.Dm.eg.db, keys = ensembl_gene_id,
+                         column = 'SYMBOL', keytype = 'ENSEMBL'))
+
+
+
+test_score <- "lm_adjPval"
+
+# remove 'chr' from CHROM names
+Full_SNP <- SNP_lmadjpvals %>% 
+  mutate(CHROM = gsub("^chr", "", CHROM))
+
+# cumulative positions per chromosome. used to plot continuous X
+chr_length <- Full_SNP %>% group_by(CHROM) %>% 
+  summarise(max_pos = max(POS), .groups = 'drop') %>% 
+  mutate(pos_add = lag(cumsum(as.numeric(max_pos)), 
+                       default = 0)) %>% 
+  dplyr::select(CHROM, pos_add)
+
+# convert SNP positions to cumulative positions across chrom
+Full_SNP <- Full_SNP %>% inner_join(chr_length, by = 'CHROM') %>% 
+  mutate(pos_cumul = POS + pos_add)
+ 
+# convert SNP positions to cumulative positions across chrom
+snp_pathways_map <- snp_pathways_map %>% 
+  mutate(CHROM = gsub("^chr", "", CHROM)) %>% 
+  inner_join(chr_length, by = 'CHROM') %>% 
+  mutate(pos_cumul = POS + pos_add)
+
+# filter out any SNPs that do not map to pathways
+snp_pathways <- snp_pathways_map %>% 
+                    filter(!is.na(pathway_name))
+
+# identify most significant SNP for each enriched pathway
+peak_snp_labels <- snp_pathways %>% 
+  group_by(pathway_name, symbol) %>%
+  # slices each pathway and symbol combination to only select the row (SNP) which has the lowest adjusted p-value
+  slice_min(order_by = .data[["lm_adjPval"]], 
+  # single value, in case of ties (draws) in max value, 
+  # first n value is considered
+            n = 1, with_ties = FALSE) %>% ungroup()
+
+# chromosome tick positions
+chrom_ticks <- Full_SNP %>% group_by(CHROM) %>% 
+  summarise(center_pos = (max(pos_cumul) + min(pos_cumul))/2,
+            .groups = 'drop')
+```
+
+#### Make the combined Manhattan plot
+
+```{r}
+SNP_path_plot <- ggplot() +
+  # All SNP data, in grey background
+  geom_point(data = Full_SNP %>% filter(lm_adjPval >= 0.05),
+             aes(x = pos_cumul, y = -log10(lm_adjPval)), 
+             color = 'grey80', alpha = 0.2, size = 0.5) +
+  # significant SNPs color-coded by pathway names
+  geom_point(data = snp_pathways_map, 
+  aes(x = pos_cumul, y = -log10(lm_adjPval),
+      color = pathway_name), size = 2, alpha = 0.9) +
+  # labels of gene symbols associated with the GO terms
+  geom_label_repel(data = snp_pathways_map,
+  aes(x = pos_cumul, y = -log10(lm_adjPval), 
+      label = symbol, color = pathway_name), 
+  box.padding = 0.5, point.padding = 0.5, max.overlaps = 20,
+  size = 3.5, show.legend = FALSE) +
+  scale_x_continuous(label = chrom_ticks$CHROM, 
+                     breaks = chrom_ticks$center_pos) +
+  scale_color_brewer(palette = 'Set1', na.value = 'darkgrey') +
+  labs(title = "Enriched GO terms mapped to differentiated SNPs",
+       x = "Chromosome", y = "-log10(adjusted P-value)",
+       color = "Enriched Biological Process") +
+  theme_cowplot() +
+  theme(legend.title = element_text(face = 'bold'))
+
+print(SNP_path_plot)
+```
+
+### Save ggplot data, ggplot figures, and enrichment tables
+
+```{r}
+# enrichment plot data
 saveRDS(SNP_enrich_plt, "../../Plots/ggplot_files/SNP_enrich_plt.RDS")
+
+# GO terms mapped to SNP differentiation data
+ggsave(SNP_path_plot, filename = "../../Plots/SNP_path_plot.jpeg",
+       dpi = 400, width = 16, height = 10, bg = 'white')
 ```
