@@ -140,10 +140,10 @@ Reg_plot <- function(ChArm, StPos, EnPos)
   
   
   hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
-    geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey20") +
-    geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.5, color = "gold") +
-    geom_point(size = 0.02, alpha = 1/8) +
-    facet_grid(Haplotype ~., scales = "free_y") +
+    #geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey20") +
+    #geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.5, color = "gold") +
+    geom_point(size = 0.5, alpha = 1/6) +
+    facet_grid(Haplotype ~.) +
     xlab("Position (MB)") +
     ylab("Frequency") +
     scale_color_manual(name = "Selection",
@@ -171,4 +171,15 @@ p1 <- Reg_plot(ChArm, StPos, EnPos)
 
 #I recommend saving to file, not trying to look at it in the window- too big
 ggsave(p1, file = paste0("../../Plots/Comparison_Scan_",ChArm,"_",StPos,"_",EnPos,".png"), width = 6.5, height = 6.5)
+
+
+ChArm <- "3R"
+#make sure to use as.integer so it prints in not sci notation
+StPos <- as.integer(27969000)
+EnPos <- as.integer(27975000)
+
+p1 <- Reg_plot(ChArm, StPos, EnPos)
+
+#I recommend saving to file, not trying to look at it in the window- too big
+ggsave(p1, file = paste0("../../Plots/Comparison_Scan_",ChArm,"_",StPos,"_",EnPos,".png"), width = 4.5, height = 5.5)
 
