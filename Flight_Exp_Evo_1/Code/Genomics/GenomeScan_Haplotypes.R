@@ -184,7 +184,7 @@ phap3R <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_3R.Rds"
 phapX <- readRDS(file = paste0("../../../Big_data/Haplotype_Inf/HapScan_X.Rds"))
 
 phap <- rbind(phap2L,phap2R,phap3L,phap3R,phapX)
-phap$Padj <- 10^-phap$O_p
+phap$Padj <- p.adjust(10^-phap$O_p, method = "fdr")
 
 saveRDS(phap[,c("ChArm","Ppos","MA_D","Padj")], file = paste0("../../../Big_data/Haplotype_Inf/HapScan_Padj.Rds"))
 
