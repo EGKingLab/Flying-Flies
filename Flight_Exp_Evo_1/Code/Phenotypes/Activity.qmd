@@ -13,7 +13,12 @@ library(tidyverse)
 library(lmerTest)
 library(AICcmodavg)
 library(emmeans)
+library(effectsize)
 library(cowplot)
+library(gt)
+library(modelsummary)
+library(patchwork)
+library(officer)
 
 ```
 
@@ -103,37 +108,46 @@ act_dist <- act_data %>% group_by(Selection, PopReplicate, PopRep, Assay_set, Ru
 #### Fit models for AICc
 
 ```{r}
-# Only main effect of Selection
+models_comp <- c("1.Only_Selection", "2.Only_Sex", 
+"3.Sel+Sex","4.Sel*Sex", "5.Sel+Sex+Assay","6.Sel*Sex+Assay",
+"7.Sel*Sex*Assay", "8.Assay_random")
+
+# 1. Only main effect of Selection
 distmod_sel <- lmer(data = act_dist, REML = FALSE,
                     Tot_d ~ Selection + (1|PopRep))
 
-# Only main effect of Sex
+# 2. Only main effect of Sex
 distmod_sex <- lmer(data = act_dist, REML = FALSE,
                     Tot_d ~ Sex + (1|PopRep))
 
-# Additive model of Selection and Sex
+# 3. Additive model of Selection and Sex
 distmod_add <- lmer(data = act_dist, REML = FALSE,
                     Tot_d ~ Selection + Sex + (1|PopRep))
 
-# Cross of Selection and Sex
+# 4. Cross of Selection and Sex
 distmod_full <- lmer(data = act_dist, REML = FALSE,
                     Tot_d ~ Selection * Sex + (1|PopRep))
 
-# Additive model with Assay_set as a fixed factor crossed with Selection
+# 5. Additive model with Assay_set as a fixed factor crossed with Selection
 distmod_add_set <- lmer(data = act_dist, REML = FALSE,
 Tot_d ~ Selection + Sex + Assay_set + Assay_set:Selection + (1|PopRep))
 
-# Full cross with Assay_set as a fixed factor crossed with Selection
+# 6. Full cross with Assay_set as a fixed factor crossed with Selection
 distmod_full_set <- lmer(data = act_dist, REML = FALSE,
   Tot_d ~ Selection * Sex + Assay_set + Assay_set:Selection +
     (1|PopRep))
 
-# The complete model with all terms crossed
+# 7. The complete model with all terms crossed
 distmod_complete <- lmer(data = act_dist, REML = FALSE,
   Tot_d ~ Selection * Sex * Assay_set + (1|PopRep))
 
+# 8. Assay as a random factor
+distmod_random <- lmer(data = act_dist, REML = FALSE,
+  Tot_d ~ Selection*Sex + (1|PopRep) + (1|Selection:Assay_set))
+
 aictab(cand.set = 
-         list(distmod_sel, distmod_sex, distmod_add, distmod_full, distmod_add_set, distmod_full_set, distmod_complete))
+         list(distmod_sel, distmod_sex, distmod_add, distmod_full, distmod_add_set, distmod_full_set, distmod_complete, distmod_random),
+       modnames = models_comp)
 ```
 
 The results of AICc indicate that the model with an additive design of Selection and Sex with additive Assay_set and an interaction of Assay_set:Selection has the most support, with nearly equivalent support for the model with the full cross of Selection and Sex with additive Assay_set and an interaction of Assay_set:Selection. Going forward, we will analyze the full cross of Selection and Sex, with additive Assay_set and interaction of Assay_set:Selection.
@@ -149,6 +163,19 @@ support_mod <- lmer(data = act_dist, REML = TRUE,
 anova(support_mod)
 eta_squared(support_mod)
 cohens_f(support_mod)
+
+# testmod <- lmer(data = act_dist, REML = TRUE,
+#   Tot_d ~ Selection*Sex + (1|PopRep) + (1|Selection:Assay_set))
+# anova(testmod)
+# eta_squared(testmod)
+# cohens_f(testmod)
+
+# tests variance of different variables. In a singular fit, the variance of a term is 0, so it should be removed.
+# (1|Assay_set), (1|Selection:Sex:Assay_set), (1|Sex:Assay_set)
+# have 0 variance.
+# Check this paper which talks about levels of random factor:
+# Gomes 2022, Ecology: 10.7717/peerj.12794
+VarCorr(support_mod)
 ```
 
 Results show a significant main effect of both Selection and Sex. There are major differences in the direction of significance value and effect size due to sample size differences in the denominator used for F value.
@@ -236,11 +263,22 @@ tukey_res <- emmeans(support_mod, pairwise ~ Selection:Assay_set,
 summary(tukey_res)
 ```
 
-```{r}
-act_data %>% ggplot(aes(x = Second)) + geom_histogram()
+### Assemble plots by patchwork and save
 
-act_counts <- act_data %>% group_by(Selection, PopReplicate, Assay_set, Run, Tube) %>% summarise(N = n())
+```{r}
+act_dist_fig <- cross_plot/selset_plot +
+  plot_layout(guides = 'collect') +
+  plot_annotation(
+  title = "Flight performance within a factorial framework of stimuli",
+  tag_levels = 'A'
+)
+
+print(act_dist_fig)
+
+ggsave(act_dist_fig, filename = "../../Plots/act_dist_fig.jpeg", dpi = 400, width = 12, height = 12)
 ```
+
+### Save tables
 
 ## Time spent moving, and speed calculations
 
@@ -255,15 +293,31 @@ Once time difference between frames is calculated (see below), there are several
 Thus, d\>=0.3 will be assumed as fly movement. This will then be used to estimate time spent moving.
 
 ```{r}
+# See overall time distribution
+act_data %>% ggplot(aes(x = Second)) + geom_histogram()
+
+# Count number of flies per run
+act_counts <- act_data %>% group_by(Selection, PopReplicate, Assay_set, Run, Tube) %>% summarise(N = n())
+
 # Classify if a fly is moving in a given frame, and then calculate the time difference between frames
 act_time <- act_data %>% mutate(
   Moving = ifelse(d >= 0.3, "yes", "no")) %>% 
   group_by(Selection, PopReplicate, PopRep, Assay_set, Run, Tube, Sex) %>% mutate(Time_diff = c(Second[1], diff(Second))) %>% 
   ungroup()
 
-testabc <- act_time %>% filter(Time_diff > 0.7)
+testabc <- act_time %>% filter(Time_diff <= 1)
 
 # visualise the spread of time difference between frames
-act_time %>% ggplot(aes(x = Selection, y = Time_diff)) +
+act_time %>% ggplot(aes(x = Selection, y = Time_diff, color = Moving)) +
   geom_boxplot()
+```
+
+### Speed calculation
+
+Total distance/Total time moved
+
+```{r}
+act_speed <- act_time %>% mutate(inst_speed = d/Time_diff)
+
+act_speed %>% ggplot() + geom_boxplot(aes(x = Selection, y = log10(inst_speed), color = Moving, fill = Sex))
 ```
