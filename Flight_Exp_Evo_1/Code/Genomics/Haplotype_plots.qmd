@@ -28,6 +28,7 @@ hapX <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_X.Rds")
 
 haptotal <- bind_rows(hap2L, hap2R, hap3L, hap3R, hapX)
 
+# these drop NA values from different A haplotypes, none from O, which is the variable we are interested in
 haptotal <- haptotal %>% rename(CHROM = ChArm, POS = Ppos) %>% drop_na()
 
 target_SNPs <- readRDS("../../../Big_data/lm_targetSNPs.RDS")
