@@ -230,9 +230,9 @@ peak_snp_labels <- snp_pathways %>%
   # first n value is considered
             n = 1, with_ties = FALSE) %>% ungroup() %>% 
   # highlights only the distinct positions for each label
-  distinct(pos_cumul, symbol, .keep_all = TRUE) %>% 
+  distinct(pos_cumul, symbol, .keep_all = TRUE) #%>% 
   # filters out the hundreds of possible labels by showing the top differentiated positions of haplotype differentiation
-  filter(adj_p < 0.01)
+  #filter(adj_p < 0.01)
 
 # chromosome tick positions
 chrom_ticks <- Full_SNP %>% group_by(CHROM) %>% 
@@ -271,14 +271,14 @@ print(Hap_sig_path_plot)
 ```
 
 ```{r}
-heat_plot_data <- snp_pathways %>% 
+heat_plot_data <- snp_pathways %>% filter(adj_p < 0.001) %>%
   mutate(symbol = sapply(symbol, 
 function(x) ifelse(length(x)>0, x[1], NA_character_))) %>% 
   mutate(symbol = factor(symbol), 
          pathway_name = factor(pathway_name)) %>% 
   group_by(symbol, pathway_name) %>% 
-  summarise(sig_sites = n_distinct(pos_cumul), .groups = 'drop') %>%
-    filter(sig_sites >= quantile(sig_sites, 0.90))
+  summarise(sig_sites = n_distinct(pos_cumul), .groups = 'drop') 
+
 
 
 heat_plot_GO <- heat_plot_data %>% 
@@ -290,7 +290,7 @@ heat_plot_GO <- heat_plot_data %>%
   labs(y = "Biological Process", x = "Gene Symbol", 
     fill = "No. of Contributing \nGenomic Positions",
     title = "Genes contributing to Enriched Biological Processes\n
-       (top 10% contributing genomic sites)") +
+       (Haplotype frequency difference P<0.001)") +
   theme_cowplot() +
   theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1))
 
@@ -332,6 +332,13 @@ enrich_fig <- SNP_enrich_plt/Hap_enrich_plt +
   tag_levels = 'A')
 
 print(enrich_fig)
+```
+
+### Save data for GO terms
+
+```{r}
+# save data on gene mapping of enriched sites
+snp_pathways %>% write_rds("../../../Big_data/hap_GO_enrich.RDS")
 ```
 
 ### Save figures and tables
