@@ -24,6 +24,10 @@ library(car)
 library(emmeans)
 library(ggeffects)
 library(broom)
+library(gt)
+library(modelsummary)
+library(patchwork)
+library(officer)
 
 theme_set(theme_cowplot())
 ```
@@ -156,17 +160,52 @@ Mean_dist_plots <- Mean_dist %>%
   facet_grid(.~Factor, scales = "free_x") +
   geom_boxplot(outlier.shape = NA, alpha = 0.5) +
   geom_point(aes(shape = PopReplicate), 
-             position = position_jitter(width = 0.1)) +
+             position = position_dodge(width = 0.5)) +
   stat_summary(fun = "mean", color = "black", shape = "-", size = 4) + 
+  scale_shape_manual(guide = 'none',
+    values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
   labs(x = "Comparison", y = "Mean Chambers Traversed")
 print(Mean_dist_plots)
+
+lab_light <- c("Light ON" = "L_ON", "L_OFF" = "Light OFF")
+lab_fan <- c("F_ON" = "Fan ON", "F_OFF" = "Fan OFF")
+
+# shows all treatment combinations
+Mdist_full_plot <- Mean_dist %>% 
+  mutate(Light_Status = factor(str_replace(Light_Status, "^L_", "Light_")),
+         Fan_Status = factor(str_replace(Fan_Status, "^F_", "Fan_"))) %>% 
+  # Make boxplots for main effect comparisons
+  ggplot(aes(x = Selection, y = meandist, color = Selection, fill = Light_Status, group = interaction(Selection, Light_Status))) +
+  facet_grid(. ~ Fan_Status) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5, position = position_dodge(width = 0.9), key_glyph = 'point') +
+  geom_point(aes(shape = PopReplicate), 
+             position = position_dodge(width = 0.9), alpha = 0.5) +
+  stat_summary(fun = "mean", color = "black", shape = "-", size = 4, position = position_dodge(width = 0.9), show.legend = FALSE)+
+  scale_fill_manual(name = "Light Status",
+    values = c("Light_OFF" = 'grey35', "Light_ON" = 'lightyellow')) +
+  scale_shape_manual(name = "Replicate",
+    values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
+  scale_color_manual(name = "Selection",
+    values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  guides(fill = guide_legend(override.aes = list(shape = 21, size = 3))) +
+  labs(x = "Selection", y = "Mean Chambers Traversed") + theme_cowplot()
+
+print(Mdist_full_plot)
+
+fact_flight_plot <- Mean_dist_plots/Mdist_full_plot + 
+  plot_annotation(
+  title = "Flight performance within a factorial framework of stimuli",
+  tag_levels = 'A'
+)
+
+print(fact_flight_plot)
 
 ```
 
 #### Save plot
 
 ```{r}
-# ggsave(Mean_dist_plots, filename = "../../Plots/Fact_meandist_main.jpeg", dpi = 400, width = 12, height = 6)
+ggsave(fact_flight_plot, filename = "../../Plots/fact_flight_fig.jpeg", dpi = 400, width = 12, height = 12)
 
 saveRDS(Mean_dist_plots, file = "../../Plots/ggplot_files/Fact_mdist_plot.RDS")
 ```
