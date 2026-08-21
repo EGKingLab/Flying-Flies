@@ -16,6 +16,11 @@ library(lme4)
 library(lmerTest)
 library(cowplot)
 library(scales)
+library(patchwork)
+library(effectsize)
+library(gt)
+library(modelsummary)
+library(officer)
 
 FP_flight_raw <- read_excel("../../../Raw_data/Data - Selection Flight.xlsx")
 
@@ -93,25 +98,26 @@ FlightGen_means <- FlightGen_data %>%
 selgenmod <- lmer(data = FlightGen_means,
                   formula = MeanCh ~ Selection * GenFP + (1|PopRepNest))
 
-anova(selgenmod)
-eta_squared(selgenmod)
-omega_squared(selgenmod)
+a_selgen <- anova(selgenmod)
+e_selgen <- eta_squared(selgenmod)
+c_selgen <- cohens_f(selgenmod)
+o_selgen <- omega_squared(selgenmod)
 
 # Only CON
 CONGen_data <- FlightGen_means %>% filter(Selection == "CON") 
 
 CONmod <- lmer(data = CONGen_data, formula = MeanCh ~ GenFP + (1|PopRepNest))
 
-anova(CONmod)
-eta_squared(CONmod)
+a_CON <- anova(CONmod)
+e_CON <- eta_squared(CONmod)
 
 # Only FP
 FPGen_data <- FlightGen_means %>% filter(Selection == "FP") 
 
 FPmod <- lmer(data = FPGen_data, formula = MeanCh ~ GenFP + (1|PopRepNest))
 
-anova(FPmod)
-eta_squared(FPmod)
+a_FP <- anova(FPmod)
+e_FP <- eta_squared(FPmod)
 
 ```
 
@@ -136,6 +142,10 @@ mean_flightgen_plot <- ggplot() +
   stat_summary(data = FlightGen_means, aes(
     x = GenFP, y = MeanCh, color = Selection),
     fun = mean, size = 4, shape = '-') +
+  scale_color_manual(name = "Selection",
+    values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  scale_shape_manual(name = "Replicate",
+    values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
   labs(x = "Generation", y = "Mean Chamber Traversed") +
   theme_cowplot()
 
@@ -202,6 +212,57 @@ print(heat_flightgen2)
 
 ```
 
+### Jitter plots in bounding boxes (number of flies in each chamber)
+
+Scale fly counts to 1000 and then plot within chamber boxes.
+
+```{r}
+Flight_data_box <- FlightGen_data %>% 
+  mutate(ChamberNum = parse_number(Chamber)) %>% mutate(Ch_end = ChamberNum + 1) %>% 
+  #dplyr::select(-Sum, -RSum, -Chamber, -FlyFreq) %>% 
+  group_by(Selection, Replicate, GenFP, ChamberNum, Ch_end) %>% 
+  summarise(RunFlyCount = mean(FlyCount))
+
+Flight_box_coords <- Flight_data_box %>% mutate(
+  x_axis = as.numeric(GenFP),
+  n_Sel = nlevels(Selection),
+  x_center = x_axis + (as.numeric(Selection) - (n_Sel + 1)/2) * 0.38,
+  xmin = x_center - 0.16,
+  xmax = x_center + 0.16)
+
+Fly_box_counts <- Flight_box_coords %>% 
+  group_by(Selection, GenFP, x_center) %>% summarise(TotCount = sum(round(RunFlyCount)))
+
+Flight_box_indflies <- Flight_box_coords %>% 
+  uncount(round(RunFlyCount)) %>% 
+  # Makes individual row for each fly 
+  mutate(y_pos = runif(n(), min = ChamberNum, max = Ch_end))
+
+flight_evol_scatter <- ggplot() +
+  geom_hline(yintercept = 0, color = 'grey') +
+  geom_jitter(data = Flight_box_indflies, 
+  aes(x = x_center, y = y_pos, color = Selection, 
+      alpha = ChamberNum, size = ChamberNum),
+              width = 0.11, height = 0) +
+  # boxes for each condition
+  geom_rect(data = Flight_box_coords, aes(xmin = xmin, xmax = xmax, ymin = ChamberNum, ymax = Ch_end), color = 'black', fill = 'white', linewidth = 0.4, alpha = 0.01) +
+  
+  geom_text(data = Fly_box_counts, aes(
+  x = x_center, y = 32 + 0.2, label = TotCount, 
+  color = Selection),
+angle = 45, size = 3, vjust = 0, hjust = 0, show.legend = FALSE) +
+  
+  scale_color_manual(name = "Selection",
+    values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  scale_size_continuous(range = c(0.2, 1.5), guide = 'none') +
+  scale_alpha_continuous(range = c(0.05, 0.95), guide = 'none') +
+  scale_x_continuous(breaks = seq_along(levels(Flight_data_box$GenFP)),
+                     labels = levels(Flight_data_box$GenFP)) +
+  lims(y = c(0, 33.5)) +
+  labs(x = "Generation", y = "Chamber of flight tunnel", color = 'Selection') +
+  theme_cowplot()
+```
+
 ### Save plots
 
 ```{r}
@@ -211,4 +272,50 @@ saveRDS(heat_onlysel, "../../Plots/ggplot_files/flight_mheatplt.RDS")
 
 saveRDS(heat_flightgen2, "../../Plots/ggplot_files/flight_repheatplt.RDS")
 
+```
+
+#### Assemble figure with patchwork and save tables
+
+```{r}
+flight_evol_fig <- flight_evol_scatter/mean_flightgen_plot +
+  plot_annotation(
+  title = "Evolution of flight performance",
+  tag_levels = 'A')
+
+ggsave(flight_evol_fig, 
+       filename = "../../Plots/flight_evol_fig.jpeg", 
+       dpi = 400, width = 12, height = 12)
+```
+
+Tables
+
+```{r}
+# model with Selection and Generation: ANOVA
+gt2 <- a_fit_Fec_log %>% broom::tidy() %>% 
+  datasummary_df(fmt = 3, output = 'gt') %>% 
+  tab_header(title = "ANOVA results, log-transformed per capita fecundity")
+
+# eta-squared partial and cohens_f partial with fecundity log transformation
+gt3 <- e_fit_Fec_log  %>% 
+  datasummary_df(fmt = 3, output = 'gt') %>% 
+  tab_header(title = "Partial Eta-squared value, log-transformed per capita fecundity")
+
+# model without log transformation: ANOVA
+gt4 <- a_fit_Fec %>% broom::tidy() %>% 
+  datasummary_df(fmt = 3, output = 'gt') %>% 
+  tab_header(title = "ANOVA results, per capita fecundity")
+
+
+# correlation of total female population size and total fecundity
+# CON correlation
+CON_corr <- gt(tidy(corr_fecpop[[1]])) %>% 
+  tab_header(title = "Correlation of female population size and total fecundity: CON")
+  
+# FP correlation
+FP_corr <- gt(tidy(corr_fecpop[[2]])) %>% 
+  tab_header(title = "Correlation of female population size and total fecundity: FP")
+
+# Save all tables into a single docx
+gt_group(gt1, gt2, gt3, gt4, CON_corr, FP_corr) %>% 
+  gtsave("../../Tables/fecundity_tables.docx")
 ```
