@@ -105,7 +105,11 @@ fec_plot <- ggplot(data = Fecund_data, aes(x = Selection, y = Ind_Fec, color = S
   geom_point(aes(shape = Replicate), 
              position = position_dodge(width = 0.5), 
              size = 3, alpha = 0.5) + 
- stat_summary(fun = "mean", color = "black", shape = "-", size = 4)+
+ stat_summary(fun = "mean", color = "black", shape = "-", size = 4) +
+  scale_color_manual(name = "Selection",
+    values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  scale_shape_manual(name = "Replicate",
+    values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
   labs(x = "Selection", y = "Fecundity in 2 hour window (per capita)")
 
 print(fec_plot)
@@ -117,7 +121,10 @@ print(fec_plot)
 fec_pop <- ggplot(data = Fecund_data) + geom_point(aes(x = PopFemales, y = Fecundity, color = Selection), size = 5, alpha = 0.5) + 
   geom_point(aes(x = PopFemales, y = Fecundity, shape = factor(Plate)), color = 'black', size = 4) +
   scale_shape_manual(values = c("1", "2", "3")) +
-  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') + theme_cowplot() + guides(shape = 'none') + labs(x = "Population Size (Females)")
+  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed')+
+  scale_color_manual(name = "Selection",
+    values = c("CON" = 'steelblue', "FP" = 'firebrick'))  + 
+  theme_cowplot() + guides(shape = 'none') + labs(x = "Population Size (Females)")
                                                             
 
 indfec_plates <- ggplot(data = Fecund_data, 
@@ -125,7 +132,11 @@ indfec_plates <- ggplot(data = Fecund_data,
   geom_point(aes(color = Selection, shape = Replicate, 
           group = Selection), 
           size = 3, position = position_dodge(width=0.4)) + 
-  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') + labs(x = 'Plate', y = "Fecundity in 2 hour window (per capita)") + theme_cowplot()
+  geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed')+
+  scale_color_manual(name = "Selection",
+    values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  scale_shape_manual(name = "Replicate",
+    values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) + labs(x = 'Plate', y = "Fecundity in 2 hour window (per capita)") + theme_cowplot()
 
 print(fec_pop)
 print(indfec_plates)
