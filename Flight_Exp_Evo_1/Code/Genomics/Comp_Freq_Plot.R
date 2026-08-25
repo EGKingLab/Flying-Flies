@@ -146,14 +146,16 @@ psnp <- psnp[psnp$CHROM==ChArm,]
 
 
 hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
-  geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey20") +
-  geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.5, color = "gold") +
+  geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.2, color = "grey50") +
+  geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.2, color = "gold") +
   geom_point(size = 0.02, alpha = 1/8) +
   facet_grid(Haplotype ~., scales = "free_y") +
   xlab("Position (MB)") +
   ylab("Frequency") +
   scale_color_manual(name = "Selection",
-                     values = c("CON" = 'steelblue', "FP" = 'firebrick'))
+                     values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  theme(axis.text = element_text(size = 8)) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2)))
 
 ggsave(hplot, file = paste0("../../Plots/Comparison_Scan_",ChArm,".png"), width = 6.5, height = 6.5)
 
