@@ -16,6 +16,7 @@ library(cowplot)
 library(ggrepel)
 library(patchwork)
 library(scatterpie)
+library(paletteer)
 ```
 
 ### Core region function
@@ -30,15 +31,15 @@ Loading it within file to make additions
 Reg_GOplot <- function(ChArm, StPos, EnPos)
 {
   # temp test values
-  ChArm <- "2L"
+  #ChArm <- "2L"
   
   pool.snp <- readRDS(file = "/home/srikantv/Flying_Flies_Phenotyping/Big_data/FF_genomes_filtered.RDS")
   
   freq_coords <- pool.snp %>% filter(CHROM == ChArm)
   
   # Use this code for entire chromosome plots
-  StPos <- as.integer(min(freq_coords$POS))
-  EnPos <- as.integer(max(freq_coords$POS))
+  #StPos <- as.integer(min(freq_coords$POS))
+  #EnPos <- as.integer(max(freq_coords$POS))
   
   
   # Use this code for region based plots
@@ -182,15 +183,15 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
   phap <- phap[phap$ChArm==ChArm & phap$Ppos >= StPos & phap$Ppos <= EnPos & phap$Padj <= 0.05,]
   
   
-  hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
-    #geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey20") +
-    #geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.5, color = "gold") +
-    geom_point(size = 0.5, alpha = 1/6) +
-    facet_grid(Haplotype ~.) +
-    xlab("Position (MB)") +
-    ylab("Frequency") +
-    scale_color_manual(name = "Selection",
-                       values = c("CON" = 'steelblue', "FP" = 'firebrick'))
+  # hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
+  #   geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey20") +
+  #   geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.5, color = "gold") +
+  #   geom_point(size = 0.5, alpha = 1/6) +
+  #   facet_grid(Haplotype ~.) +
+  #   xlab("Position (MB)") +
+  #   ylab("Frequency") +
+  #   scale_color_manual(name = "Selection",
+  #                      values = c("CON" = 'steelblue', "FP" = 'firebrick'))
   
   
   
@@ -227,8 +228,14 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
     ), rank_label = factor(rank_label, levels = c("1st", "2nd", "3rd"))
     )
   
-  ggplot(ranks_plot_data, aes(x = Founder, fill = rank_label))
+  ranks_plot <- ggplot(ranks_plot_data, aes(x = Founder, fill = rank_label)) + 
+    geom_bar(position = position_stack(reverse = T), width = 0.8) +
+    scale_fill_paletteer_d("ggsci::default_nejm", direction = -1) +
+    labs(x = "Founder Line", y = "Count in given rank", 
+      title = paste0("Number of times founder lines contribute the most to significant sites\nChromosome Arm: ", ChArm), 
+      fill = "Rank in signficant site") + theme_cowplot()
   
+  #print(ranks_plot)
   
   # Load GO terms and genes list
   GOdata <- readRDS(file = paste0("../../../Big_data/hap_GO_enrich.RDS"))
@@ -270,48 +277,105 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
   theme_cowplot() +
   theme(legend.title = element_text(face = 'bold'))
   
-  print(GO_reg_scan)
+  #print(GO_reg_scan)
   
-  ggsave(GO_reg_scan, filename = "../../Plots/GO_hap_try.jpeg", 
-         dpi = 300, height = 12, width = 12)
+  # ggsave(GO_reg_scan, filename = "../../Plots/GO_hap_try.jpeg", 
+  #        dpi = 300, height = 12, width = 12)
 
   GO_matrix <- ggplot(data = GOhap, aes(x = POS/1e6, y = pathway_name)) +
     geom_point(aes(size = -log10(adj_p), color = -log10(adj_p)), alpha = 0.5) +
   geom_label_repel(aes(label = symbol), size = 3, max.overlaps = 10, box.padding = 0.3) +
   theme_cowplot()
 
-  print(GO_matrix)
-  # 
-  # return(hplot)
+  #print(GO_matrix)
   
   # maybe color heat plot by number of significant sites or by gene size
-  
+
   heat_plot_data <- GOhap %>% group_by(pathway_name, symbol) %>%
   # slices each pathway and symbol combination to only select the row (SNP) which has the lowest adjusted p-value
-  slice_min(order_by = .data[["adj_p"]], 
-  # single value, in case of ties (draws) in max value, 
+  slice_min(order_by = .data[["adj_p"]],
+  # single value, in case of ties (draws) in max value,
   # first n value is considered
-            n = 1, with_ties = FALSE) %>% ungroup() %>% 
+            n = 1, with_ties = FALSE) %>% ungroup() %>%
   # symbol is a list, this makes symbol a factor
-  mutate(symbol = sapply(symbol, 
-function(x) ifelse(length(x)>0, x[1], NA_character_))) %>% 
-  mutate(symbol = factor(symbol), 
+  mutate(symbol = sapply(symbol,
+function(x) ifelse(length(x)>0, x[1], NA_character_))) %>%
+  mutate(symbol = factor(symbol),
          pathway_name = factor(pathway_name))
 
-  heat_plot_GO <- heat_plot_data %>% 
+  heat_plot_GO <- heat_plot_data %>%
   ggplot(aes(x = symbol, y = pathway_name, fill = adj_p)) +
   geom_tile(color = 'white', linewidth = 0.5) +
-  #geom_text(aes(label = sig_sites), 
+  #geom_text(aes(label = sig_sites),
    #         color = 'black', fontface = 'bold', size = 4) +
   scale_fill_viridis_c(option = 'plasma', direction = -1) +
-  labs(y = "Biological Process", x = "Gene Symbol", 
+  labs(y = "Biological Process", x = "Gene Symbol",
     fill = "adjusted P-value",
-  title = "Genes contributing to Enriched Biological Processes") +
+  title = paste0("Genes contributing to Enriched Biological Processes
+                 \nChromosome Arm: ", ChArm)) +
   theme_cowplot() +
   theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1))
 
-  print(heat_plot_GO)
+  #print(heat_plot_GO)
+
   
+  chrom_fig <- ranks_plot/GO_reg_scan + plot_annotation(tag_levels = "A")
+  
+  GO_fig2 <- GO_matrix/heat_plot_GO + plot_annotation(tag_levels = "A")
+  
+  out_list <- list(chrom_fig, GO_fig2)
+  return(out_list)
 }
 
+```
+
+## Call functions for each chromosome arm
+
+```{r}
+  
+coord_data_full <- readRDS(file = "/home/srikantv/Flying_Flies_Phenotyping/Big_data/FF_genomes_filtered.RDS")
+  
+# arm 2L
+ChArm2L <- "2L"
+
+freq_coords_2L <- coord_data_full %>% filter(CHROM == ChArm2L)
+  
+# Use this code for entire chromosome plots
+StPos2L <- as.integer(min(freq_coords_2L$POS))
+EnPos2L <- as.integer(max(freq_coords_2L$POS))
+
+out_2L <- Reg_GOplot(ChArm2L, StPos2L, EnPos2L)
+
+rank_scango_2L <- out_2L[[1]]
+GOfig2_2L <- out_2L[[2]]
+
+ggsave(rank_scango_2L, filename = "../../Plots/rank_scanGO_2L.jpeg", 
+          dpi = 400, height = 12, width = 12)
+
+ggsave(GOfig2_2L, filename = "../../Plots/GOfig2_2L.jpeg", 
+          dpi = 300, height = 12, width = 12)
+```
+
+Chromosome arm 3R
+
+```{r}
+# arm 3R
+ChArm3R <- "3R"
+
+freq_coords_3R <- coord_data_full %>% filter(CHROM == ChArm3R)
+  
+# Use this code for entire chromosome plots
+StPos3R <- as.integer(min(freq_coords_3R$POS))
+EnPos3R <- as.integer(max(freq_coords_3R$POS))
+
+out_3R <- Reg_GOplot(ChArm3R, StPos3R, EnPos3R)
+
+rank_scango_3R <- out_3R[[1]]
+GOfig2_3R <- out_3R[[2]]
+
+ggsave(rank_scango_3R, filename = "../../Plots/rank_scanGO_3R.jpeg", 
+          dpi = 400, height = 12, width = 12)
+
+ggsave(GOfig2_3R, filename = "../../Plots/GOfig2_3R.jpeg", 
+          dpi = 300, height = 12, width = 12)
 ```
