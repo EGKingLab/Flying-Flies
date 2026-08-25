@@ -1,8 +1,8 @@
 library(tidyverse)
 library(INLA)
 
-source("../../../Functions/Hap_functions.R")
-source("../../../Functions/read_from_h5.R")
+source("Hap_functions.R")
+source("read_from_h5.R")
 
 
 #ChArm <- "2L"
