@@ -230,9 +230,9 @@ peak_snp_labels <- snp_pathways %>%
   # first n value is considered
             n = 1, with_ties = FALSE) %>% ungroup() %>% 
   # highlights only the distinct positions for each label
-  distinct(pos_cumul, symbol, .keep_all = TRUE) #%>% 
+  distinct(pos_cumul, symbol, .keep_all = TRUE) %>% 
   # filters out the hundreds of possible labels by showing the top differentiated positions of haplotype differentiation
-  #filter(adj_p < 0.01)
+  filter(adj_p < 0.001)
 
 # chromosome tick positions
 chrom_ticks <- Full_SNP %>% group_by(CHROM) %>% 
@@ -272,6 +272,7 @@ print(Hap_sig_path_plot)
 
 ```{r}
 heat_plot_data <- snp_pathways %>% filter(adj_p < 0.001) %>%
+  # symbol is a list, this makes symbol a factor
   mutate(symbol = sapply(symbol, 
 function(x) ifelse(length(x)>0, x[1], NA_character_))) %>% 
   mutate(symbol = factor(symbol), 
