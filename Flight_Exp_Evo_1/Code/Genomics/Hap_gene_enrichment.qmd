@@ -164,8 +164,6 @@ This code aims to combine a manhattan plot of significance with gene enrichment 
 
 #### Get SNP positions for enriched pathways
 
-#### 
-
 ```{r}
 # load final enrichment results, made separate rows for genes
 pathway_map <- final_GO %>% 
@@ -372,6 +370,23 @@ hap_genes <- unique(hap_enrich$ensembl_gene_id)
 hap_genesymbols <- unique(hap_enrich$symbol)
 
 hap_pathways <- unique(hap_enrich$pathway_name)
+
+
+# load SNP enrich data
+SNP_enrich <- readRDS(
+  "../../../Big_data/SNP_pathways_symbols.RDS")
+
+SNP_enrich <- SNP_enrich %>% 
+  # symbol is a list, this makes symbol a factor
+  mutate(symbol = sapply(symbol, 
+function(x) ifelse(length(x)>0, x[1], NA_character_))) %>% 
+  distinct(symbol, pathway_name, .keep_all = TRUE)
+
+SNP_pathways <- unique(SNP_enrich$pathway_name)
+SNP_genesymbols <- unique(SNP_enrich$symbol)
+SNP_genes <- unique(SNP_enrich$ensembl_gene_id)
+
+
 ```
 
 ### Spierer et al. 2021 (PloS Genetics) Flight performance genes (DGRP)
@@ -383,7 +398,12 @@ spierer_data_raw <- read_excel("../../../Raw_data/Spierer_etal_2021_plosgen_gene
 
 
 spierer_genesymbols <- spierer_data_raw %>% 
-  dplyr::select(`Gene Symbols`) %>% slice(-1)
+  dplyr::select(`Gene Symbols`) %>% dplyr::slice(-1)
+spierer_genesymbols <- unique(spierer_genesymbols$`Gene Symbols`)
+
+spierer_genes <- spierer_data_raw %>% dplyr::select(...11) %>% 
+  dplyr::slice(-1)
+spierer_genes <- unique(spierer_genes$...11)
 ```
 
 ### Pitcher et al. 2019 (Genetics) Wing shape genes (DGRP)
@@ -407,16 +427,46 @@ pitcher_genes <- unique(pitcher_genes$gene_names)
 
 #### Find overlaps between genes
 
-```{r}
-hap_spierer_genes_ol <- intersect(hap_genes, spierer_genes)
+SNP analysis overlaps
 
+```{r}
+# testing overlaps between haplotype analysis and SNP differentiation for genes, pathways
+hap_SNP_genes_ol <- intersect(hap_genes, SNP_genes)
+hap_SNP_genesymbols_ol <- intersect(hap_genesymbols, SNP_genesymbols)
+hap_SNP_pathways_ol <- intersect(hap_pathways, SNP_pathways)
+
+# testing overlaps between SNP differentiation analysis and Spierer et al. 2021 data for genes, pathways
+SNP_spierer_genes_ol <- intersect(SNP_genes, spierer_genes)
+SNP_spierer_symbols_ol <- intersect(
+  SNP_genesymbols, spierer_genesymbols)
+
+# testing overlaps between SNP differentiation analysis and Pitcher et al. 2019 data for genes, pathways
+SNP_pitcher_path_ol <- intersect(SNP_pathways, pitcher_pathways)
+SNP_pitcher_genes_ol <- intersect(SNP_genes, pitcher_genes)
+# SNP_pitcher_overlaps <- tibble(
+#   overlap_genes = SNP_pitcher_genes_ol) %>% 
+#   left_join(SNP_enrich,  
+#             by = c("overlap_genes" = "ensembl_gene_id")) %>% 
+#   distinct(overlap_genes, .keep_all = TRUE)
+```
+
+Haplotype analysis overlaps
+
+```{r}
+# testing overlaps between haplotype analysis and Spierer et al. 2021 data for genes, pathways
+hap_spierer_genes_ol <- intersect(hap_genes, spierer_genes)
 hap_spierer_symbols_ol <- intersect(
   hap_genesymbols, spierer_genesymbols)
+hap_spierer_overlaps <- tibble(
+  overlap_genes = hap_spierer_genes_ol) %>% 
+  left_join(hap_enrich,  
+            by = c("overlap_genes" = "ensembl_gene_id")) %>% 
+  distinct(overlap_genes, .keep_all = TRUE)
 
+
+# testing overlaps between haplotype analysis and Pitcher et al. 2019 data for genes, pathways
 hap_pitcher_path_ol <- intersect(hap_pathways, pitcher_pathways)
-
 hap_pitcher_genes_ol <- intersect(hap_genes, pitcher_genes)
-
 hap_pitcher_overlaps <- tibble(
   overlap_genes = hap_pitcher_genes_ol) %>% 
   left_join(hap_enrich,  
