@@ -242,6 +242,8 @@ chrom_ticks <- Full_SNP %>% group_by(CHROM) %>%
 #### Make the combined Manhattan plot
 
 ```{r}
+# snp_pathways_map <- snp_pathways_map %>% mutate(pathway_name = replace_na(pathway_name, "No pathway found"))
+
 SNP_path_plot <- ggplot() +
   # All SNP data, in grey background
   geom_point(data = Full_SNP %>% filter(lm_adjPval >= 0.05),
@@ -259,7 +261,11 @@ SNP_path_plot <- ggplot() +
   size = 3.5, show.legend = FALSE) +
   scale_x_continuous(label = chrom_ticks$CHROM, 
                      breaks = chrom_ticks$center_pos) +
-  scale_color_brewer(palette = 'Set1', na.value = 'darkgrey') +
+  scale_color_brewer(palette = 'Set1', na.value = 'grey30',
+                     labels = 
+  \(x) ifelse(is.na(x), "No pathway found", x)) +
+  geom_hline(yintercept = -log10(0.05), color = 'red', 
+             linetype = 'dashed') +
   labs(title = "Enriched GO terms mapped to differentiated SNPs",
        x = "Chromosome", y = "-log10(adjusted P-value)",
        color = "Enriched Biological Process") +
@@ -278,4 +284,7 @@ saveRDS(SNP_enrich_plt, "../../Plots/ggplot_files/SNP_enrich_plt.RDS")
 # GO terms mapped to SNP differentiation data
 ggsave(SNP_path_plot, filename = "../../Plots/SNP_path_plot.jpeg",
        dpi = 400, width = 16, height = 10, bg = 'white')
+
+# SNP pathways and gene symbols data
+saveRDS(snp_pathways,"../../../Big_data/SNP_pathways_symbols.RDS")
 ```
