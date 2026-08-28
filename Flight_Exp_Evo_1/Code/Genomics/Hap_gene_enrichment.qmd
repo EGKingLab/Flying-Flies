@@ -10,6 +10,7 @@ editor: visual
 
 ```{r}
 library(tidyverse)
+library(readxl)
 library(GenomicRanges)
 library(clusterProfiler)
 library(enrichplot)
@@ -351,4 +352,74 @@ ggsave(enrich_fig, filename = "../../Plots/enrich_fig.jpeg",
 # GO terms mapped to SNP differentiation data
 ggsave(Hap_sig_path_plot, filename = "../../Plots/Hap_sig_path_plot.jpeg",
        dpi = 400, width = 16, height = 10, bg = 'white')
+```
+
+## Comparisons of genes with other studies
+
+Load data from haplotype gene enrichment analysis
+
+```{r}
+hap_enrich <- readRDS("../../../Big_data/hap_GO_enrich.RDS")
+
+hap_enrich <- hap_enrich %>% 
+# symbol is a list, this makes symbol a factor
+  mutate(symbol = sapply(symbol, 
+function(x) ifelse(length(x)>0, x[1], NA_character_))) %>% 
+  distinct(symbol, pathway_name, .keep_all = TRUE)
+
+hap_genes <- unique(hap_enrich$ensembl_gene_id)
+
+hap_genesymbols <- unique(hap_enrich$symbol)
+
+hap_pathways <- unique(hap_enrich$pathway_name)
+```
+
+### Spierer et al. 2021 (PloS Genetics) Flight performance genes (DGRP)
+
+Flight performance was calculated as a self-righting ability after flies were released down a vertical tube
+
+```{r}
+spierer_data_raw <- read_excel("../../../Raw_data/Spierer_etal_2021_plosgen_genes.xlsx")
+
+
+spierer_genesymbols <- spierer_data_raw %>% 
+  dplyr::select(`Gene Symbols`) %>% slice(-1)
+```
+
+### Pitcher et al. 2019 (Genetics) Wing shape genes (DGRP)
+
+```{r}
+pitcher_data_raw <- read_excel("../../../Raw_data/Pitcher_etal_2019_wingshape_genes.xlsx", skip = 2)
+
+pitcher_pathways <- pitcher_data_raw$description
+
+pitcher_genes_raw <- pitcher_data_raw %>% 
+  dplyr::select(OverlapGene)
+
+pitcher_genes <- pitcher_genes_raw %>% mutate(
+gene_names = str_extract_all(
+  OverlapGene, "(?<=FLYBASE:)[^;]+")) %>%
+  unnest(gene_names) %>% 
+  dplyr::select(gene_names) # %>% distinct(gene_names)
+
+pitcher_genes <- unique(pitcher_genes$gene_names)
+```
+
+#### Find overlaps between genes
+
+```{r}
+hap_spierer_genes_ol <- intersect(hap_genes, spierer_genes)
+
+hap_spierer_symbols_ol <- intersect(
+  hap_genesymbols, spierer_genesymbols)
+
+hap_pitcher_path_ol <- intersect(hap_pathways, pitcher_pathways)
+
+hap_pitcher_genes_ol <- intersect(hap_genes, pitcher_genes)
+
+hap_pitcher_overlaps <- tibble(
+  overlap_genes = hap_pitcher_genes_ol) %>% 
+  left_join(hap_enrich,  
+            by = c("overlap_genes" = "ensembl_gene_id")) %>% 
+  distinct(overlap_genes, .keep_all = TRUE)
 ```
