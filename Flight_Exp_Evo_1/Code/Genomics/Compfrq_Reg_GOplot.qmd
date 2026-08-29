@@ -217,21 +217,37 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
     group_by(CHROM, POS) %>% 
     # ranks founders at each significant genomic position by their difference values
     # (difference between CON and FP)
-    mutate(F_Rank = dense_rank(desc(Difference))) %>% ungroup()
-    
+    mutate(F_Rank = dense_rank(desc(Difference))) %>% 
+    ungroup() 
+  
+  # Mean rank per founder line
+  mrank_founders <- hapdiff_ranks %>% group_by(Founder) %>% 
+    summarise(mrank = mean(F_Rank))
+  
   # Rank plot
-  ranks_plot_data <- hapdiff_ranks %>% filter(F_Rank %in% 1:3) %>% 
+  ranks_counts <- hapdiff_ranks %>%
+    mutate(Founder = factor(Founder)) %>% 
+    filter(F_Rank %in% 1:3) %>% 
     mutate(rank_label = case_when(
       F_Rank == 1 ~ "1st",
       F_Rank == 2 ~ "2nd",
       F_Rank == 3 ~ "3rd"
     ), rank_label = factor(rank_label, levels = c("1st", "2nd", "3rd"))
-    )
+    ) %>% 
+    group_by(Founder, rank_label, .drop = FALSE) %>% 
+    summarise(countrank = n())
   
-  ranks_plot <- ggplot(ranks_plot_data, aes(x = Founder, fill = rank_label)) + 
-    geom_bar(position = position_stack(reverse = T), width = 0.8) +
-    scale_fill_paletteer_d("ggsci::default_nejm", direction = -1) +
-    labs(x = "Founder Line", y = "Count in given rank", 
+  mrank_labels <- ranks_counts %>% left_join(mrank_founders, by = "Founder") %>% group_by(Founder, .drop = FALSE) %>% 
+    summarise(sumcounts = sum(countrank), mrank = mean(mrank))
+  
+  ranks_plot <- ggplot(ranks_counts) + 
+  geom_col(aes( x = Founder, y = countrank, fill = rank_label), 
+           position = position_stack(reverse = T), width = 0.8) +
+  geom_text(data = mrank_labels, aes(
+    x = Founder, y = sumcounts, label = round(mrank, 2)), 
+    size = 4, fontface = "bold", vjust = -0.3) +
+  scale_fill_paletteer_d("ggsci::default_nejm", direction = -1) +
+  labs(x = "Founder Line", y = "Count in given rank", 
       title = paste0("Number of times founder lines contribute the most to significant sites\nChromosome Arm: ", ChArm), 
       fill = "Rank in signficant site") + theme_cowplot()
   
