@@ -214,7 +214,7 @@ print(heat_flightgen2)
 
 ### Jitter plots in bounding boxes (number of flies in each chamber)
 
-Scale fly counts to 1000 and then plot within chamber boxes.
+Sample 2500 flies from each treatment combination and plot within chamber boxes.
 
 ```{r}
 Flight_data_box <- FlightGen_data %>% 
@@ -233,12 +233,60 @@ Flight_box_coords <- Flight_data_box %>% mutate(
 Fly_box_counts <- Flight_box_coords %>% 
   group_by(Selection, GenFP, x_center) %>% summarise(TotCount = sum(round(RunFlyCount)))
 
+# all flies
 Flight_box_indflies <- Flight_box_coords %>% 
   uncount(round(RunFlyCount)) %>% 
   # Makes individual row for each fly 
   mutate(y_pos = runif(n(), min = ChamberNum, max = Ch_end))
 
-flight_evol_scatter <- ggplot() +
+# 2500 randomly sampled flies
+set.seed(1234)
+
+Flight_box_ind_sample <- Flight_box_coords %>% 
+  uncount(round(RunFlyCount)) %>% 
+  # Makes individual row for each fly 
+  mutate(y_pos = runif(n(), min = ChamberNum, max = Ch_end)) %>% 
+  group_by(Selection, GenFP) %>% 
+  slice_sample(n = 2500, replace = FALSE) %>% ungroup()
+
+Fly_box_samplecounts <- Flight_box_ind_sample %>% 
+  group_by(Selection, GenFP, x_center) %>% 
+  summarise(TotCount = n())
+
+# 2500 randomly sampled flies
+flight_evol_scatter_sample <- ggplot() +
+  geom_hline(yintercept = 0, color = 'grey') +
+  geom_jitter(data = Flight_box_ind_sample, 
+  aes(x = x_center, y = y_pos, color = Selection, 
+      alpha = ChamberNum, size = ChamberNum),
+              width = 0.11, height = 0) +
+  # boxes for each condition
+  geom_rect(data = Flight_box_coords, aes(xmin = xmin, xmax = xmax, ymin = ChamberNum, ymax = Ch_end), color = 'black', fill = 'white', linewidth = 0.4, alpha = 0.01) +
+  
+  geom_text(data = Fly_box_counts, aes(
+  x = x_center, y = 32 + 0.2, 
+  label = paste0("2500/", "\n", TotCount), 
+  color = Selection), 
+  size = 2.5, vjust = 0, hjust = 0.5, show.legend = FALSE) +
+  
+  scale_color_manual(name = "Selection",
+    values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+  scale_size_continuous(range = c(0.2, 1.5), guide = 'none') +
+  scale_alpha_continuous(range = c(0.05, 0.95), guide = 'none') +
+  scale_x_continuous(breaks = seq_along(levels(Flight_data_box$GenFP)),
+                     labels = levels(Flight_data_box$GenFP)) +
+  lims(y = c(0, 33.5)) +
+  labs(x = "Generation", y = "Chamber of flight tunnel", 
+  color = 'Selection', 
+  title = "Flight tunnel traversal by flies",
+  subtitle = "2500 flies randomly sampled from each treatment") +
+  theme_cowplot()
+
+print(flight_evol_scatter_sample)
+
+
+# All flies sampled
+flight_evol_scatter_all <- ggplot() +
   geom_hline(yintercept = 0, color = 'grey') +
   geom_jitter(data = Flight_box_indflies, 
   aes(x = x_center, y = y_pos, color = Selection, 
@@ -248,9 +296,10 @@ flight_evol_scatter <- ggplot() +
   geom_rect(data = Flight_box_coords, aes(xmin = xmin, xmax = xmax, ymin = ChamberNum, ymax = Ch_end), color = 'black', fill = 'white', linewidth = 0.4, alpha = 0.01) +
   
   geom_text(data = Fly_box_counts, aes(
-  x = x_center, y = 32 + 0.2, label = TotCount, 
-  color = Selection),
-angle = 45, size = 3, vjust = 0, hjust = 0, show.legend = FALSE) +
+  x = x_center, y = 32 + 0.2, 
+  label = paste0(TotCount), 
+  color = Selection), angle = 45, 
+  size = 3.5, vjust = 0, hjust = 0, show.legend = FALSE) +
   
   scale_color_manual(name = "Selection",
     values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
@@ -259,8 +308,13 @@ angle = 45, size = 3, vjust = 0, hjust = 0, show.legend = FALSE) +
   scale_x_continuous(breaks = seq_along(levels(Flight_data_box$GenFP)),
                      labels = levels(Flight_data_box$GenFP)) +
   lims(y = c(0, 33.5)) +
-  labs(x = "Generation", y = "Chamber of flight tunnel", color = 'Selection') +
+  labs(x = "Generation", y = "Chamber of flight tunnel", 
+       color = 'Selection', 
+       title = "Flight tunnel traversal by flies",
+       subtitle = "All flies sampled from each treatment") +
   theme_cowplot()
+
+print(flight_evol_scatter_all)
 ```
 
 ### Save plots
@@ -277,7 +331,7 @@ saveRDS(heat_flightgen2, "../../Plots/ggplot_files/flight_repheatplt.RDS")
 #### Assemble figure with patchwork and save tables
 
 ```{r}
-flight_evol_fig <- flight_evol_scatter/mean_flightgen_plot +
+flight_evol_fig<-flight_evol_scatter_sample/mean_flightgen_plot +
   plot_annotation(
   title = "Evolution of flight performance",
   tag_levels = 'A')
@@ -285,6 +339,12 @@ flight_evol_fig <- flight_evol_scatter/mean_flightgen_plot +
 ggsave(flight_evol_fig, 
        filename = "../../Plots/flight_evol_fig.jpeg", 
        dpi = 400, width = 12, height = 12)
+```
+
+Save scatter plot of all flies
+
+```{r}
+ggsave(flight_evol_scatter_all, filename = "../../Plots/flight_evol_scatter_all.jpeg", dpi = 400, width = 10, height =10)
 ```
 
 Tables
