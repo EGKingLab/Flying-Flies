@@ -64,8 +64,9 @@ sig_overlaps <- subsetByOverlaps(genes_data, sig_gr)
 sig_gene_IDs <- unique(as.data.frame(sig_overlaps)$gene_id)
 sig_gene_df <- as.data.frame(sig_overlaps)
 
-sig_gene_df$symbol <- mapIds(org.Dm.eg.db, keys = sig_gene_df$gene_id,
-                             column = "SYMBOL", keytype = "ENSEMBL")
+sig_gene_df$symbol <- mapIds(org.Dm.eg.db, 
+                      keys = sig_gene_df$gene_id,
+                      column = "SYMBOL", keytype = "ENSEMBL")
 
 # This code takes the gene ranges data above (with SNPs mapped to genic coordinates),
 # and expands upon that by specifying which structure of the gene (exon, intron, etc.) 
@@ -142,6 +143,21 @@ final_GO <- as.data.frame(GO_simple)
 Hap_enrich_plt <- dotplot(GO_simple, showCategory = 21)
 
 print(Hap_enrich_plt)
+```
+
+### Network plot of genes and pathways
+
+```{r}
+GO_simple_readable <- setReadable(GO_simple, OrgDb = org.Dm.eg.db,
+                                  keyType = "ENTREZID")
+
+GO_res_read <- setReadable(GO_results, OrgDb = org.Dm.eg.db,
+                           keyType = "ENTREZID")
+
+gene_netplt <- cnetplot(GO_simple, showCategory = 13)
+
+ggsave(gene_netplt, filename = "../../Plots/temp_gene_net.jpeg",
+       dpi = 400, width = 12, height = 12)
 ```
 
 #### Extract definitions of Biological Process GO terms
@@ -270,31 +286,91 @@ print(Hap_sig_path_plot)
 ```
 
 ```{r}
-heat_plot_data <- snp_pathways %>% filter(adj_p < 0.001) %>%
+# get gene length
+exons <- exonsBy(txdb, by = "gene")
+gene_lengths <- sum(width(reduce(exons)))
+
+gene_lengths_df <- tibble(gene_ID = names(gene_lengths),
+                          gene_length = as.numeric(gene_lengths))
+
+# already present data sig_genes_df contains FBgn values and symbols, selecting those columns and joining with exon length
+geneid_symbol <- sig_gene_df %>% 
+  dplyr::select(gene_id, symbol) %>% rename(gene_ID = gene_id)
+
+sig_gene_lengths <- geneid_symbol %>% 
+  left_join(gene_lengths_df, by = "gene_ID")
+
+heat_plot_dataraw <- snp_pathways %>% #filter(adj_p < 0.001) %>%
   # symbol is a list, this makes symbol a factor
   mutate(symbol = sapply(symbol, 
 function(x) ifelse(length(x)>0, x[1], NA_character_))) %>% 
-  mutate(symbol = factor(symbol), 
-         pathway_name = factor(pathway_name)) %>% 
   group_by(symbol, pathway_name) %>% 
-  summarise(sig_sites = n_distinct(pos_cumul), .groups = 'drop') 
+  summarise(sig_sites = as.numeric(n_distinct(pos_cumul)), 
+            .groups = 'drop') 
 
+heat_plot_data <- heat_plot_dataraw %>% 
+  left_join(sig_gene_lengths, by = "symbol") %>% 
+  mutate(symbol = factor(symbol), 
+         pathway_name = factor(pathway_name),
+         # calculate density of significant site in gene 
+         # the denominator is exon length for the gene
+         sig_density = sig_sites/gene_length) %>% 
+  group_by(symbol) %>% 
+  mutate(overlap_count = as.numeric(n_distinct(pathway_name))) %>%
+  ungroup() %>%
+  mutate(
+    # rank the genes by density of significant sites in genes
+    density_rank = dense_rank(dplyr::desc(sig_density)),
+    # rank the genes by number of significant sites
+    sites_rank = dense_rank(dplyr::desc(sig_sites)))
 
+# Plot of rank of gene based on number of sites vs. density of significant sites
+heat_plot_data %>% distinct(symbol, .keep_all = TRUE) %>% 
+  ggplot(aes(x = density_rank, y = sites_rank, 
+             color = log10(gene_length))) +
+  geom_point(alpha = 0.5) + 
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  labs(x = "Number of significant sites", 
+       y = "Density of significant sites") +
+  theme_cowplot()
 
-heat_plot_GO <- heat_plot_data %>% 
+# count how many genes are present at each overlap count
+genes_pathways <- heat_plot_data %>% 
+  distinct(symbol, overlap_count) %>% 
+  dplyr::count(overlap_count, name = "genes_contrib")
+
+heat_plot_GO_sig <- heat_plot_data %>% 
+  filter(sites_rank <= 10) %>% 
+  ggplot(aes(x = symbol, y = pathway_name, fill = sig_density)) +
+  geom_tile(color = 'white', linewidth = 0.5) +
+  #geom_text(aes(label = sig_sites), 
+   #         color = 'black', fontface = 'bold', size = 4) +
+  scale_fill_viridis_c(option = 'plasma', direction = -1) +
+  labs(y = "Biological Process", x = "Gene Symbol", 
+    fill = "Density of significant sites in gene \n(no. significant sites/exon length)",
+    title = "Genes contributing to Enriched Biological Processes\n
+       Top 10 genes by number of significant genomic sites") +
+  theme_cowplot() +
+  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1))
+
+print(heat_plot_GO_sig)
+
+heat_plot_GO_dens <- heat_plot_data %>% 
+  filter(density_rank <= 10) %>% 
   ggplot(aes(x = symbol, y = pathway_name, fill = sig_sites)) +
   geom_tile(color = 'white', linewidth = 0.5) +
   #geom_text(aes(label = sig_sites), 
    #         color = 'black', fontface = 'bold', size = 4) +
   scale_fill_viridis_c(option = 'plasma', direction = -1) +
   labs(y = "Biological Process", x = "Gene Symbol", 
-    fill = "No. of Contributing \nGenomic Positions",
+    fill = "Number of significant sites in gene",
     title = "Genes contributing to Enriched Biological Processes\n
-       (Haplotype frequency difference P<0.001)") +
+       Top 10 genes by density of significant genomic sites\n
+    (No. of significant sites/exon length)") +
   theme_cowplot() +
   theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1))
 
-print(heat_plot_GO)
+print(heat_plot_GO_dens)
 ```
 
 ### Assemble plots with framework
@@ -302,16 +378,21 @@ print(heat_plot_GO)
 #### Scanplot + heatplot of genes and pathways
 
 ```{r}
-hap_scan_GO_fig <- free(Hap_sig_path_plot)/free(heat_plot_GO) +
-  plot_layout(heights = c(2, 1), guides = 'keep') +
-  plot_annotation(
-  title = "Haplotype frequency differentiation: mapping GO terms",
-  tag_levels = 'A') 
+# hap_scan_GO_fig <- free(Hap_sig_path_plot)/free(heat_plot_GO) +
+#   plot_layout(heights = c(2, 1), guides = 'keep') +
+#   plot_annotation(
+#   title = "Haplotype frequency differentiation: mapping GO terms",
+#   tag_levels = 'A') 
+# 
+# ggsave(hap_scan_GO_fig, filename = 
+#          "../../Plots/hap_scan_GO_fig.jpeg", 
+#        dpi = 400, width = 12, height = 12)
 
-ggsave(hap_scan_GO_fig, filename = 
-         "../../Plots/hap_scan_GO_fig.jpeg", 
+heat_fig_GO <- heat_plot_GO_dens/heat_plot_GO_sig +
+  plot_annotation(tag_levels = 'A')
+
+ggsave(heat_fig_GO, filename = "../../Plots/heat_fig_GO.jpeg",
        dpi = 400, width = 12, height = 12)
-
 ```
 
 #### Enrich plots
