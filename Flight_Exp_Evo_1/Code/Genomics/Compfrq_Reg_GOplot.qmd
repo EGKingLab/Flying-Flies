@@ -217,7 +217,7 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
     group_by(CHROM, POS) %>% 
     # ranks founders at each significant genomic position by their difference values
     # (difference between CON and FP)
-    mutate(F_Rank = dense_rank(desc(Difference))) %>% 
+    mutate(F_Rank = dense_rank(dplyr::desc(Difference))) %>% 
     ungroup() 
   
   # Mean rank per founder line
@@ -348,7 +348,7 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
 ## Call functions for each chromosome arm
 
 ```{r}
-coord_data_full <- readRDS(file = "/home/srikantv/Flying_Flies_Phenotyping/Big_data/FF_genomes_filtered.RDS")
+coord_data_full <- readRDS(file = "../../../Big_data/FF_genomes_filtered.RDS")
 
 chrom_arms <- as.character(unique(coord_data_full$CHROM))
 
@@ -367,53 +367,4 @@ for (chr in chrom_arms){
   # remove outplots list to save memory
   rm(freq_coords_chrom, StPos, EnPos, rankscango_fig)
 }
-```
-
-```{r}
-  
-coord_data_full <- readRDS(file = "/home/srikantv/Flying_Flies_Phenotyping/Big_data/FF_genomes_filtered.RDS")
-  
-# arm 2L
-ChArm2L <- "2L"
-
-freq_coords_2L <- coord_data_full %>% filter(CHROM == ChArm2L)
-  
-# Use this code for entire chromosome plots
-StPos2L <- as.integer(min(freq_coords_2L$POS))
-EnPos2L <- as.integer(max(freq_coords_2L$POS))
-
-out_2L <- Reg_GOplot(ChArm2L, StPos2L, EnPos2L)
-
-rank_scango_2L <- out_2L[[1]]
-GOfig2_2L <- out_2L[[2]]
-
-ggsave(rank_scango_2L, filename = "../../Plots/rank_scanGO_2L.jpeg", 
-          dpi = 400, height = 12, width = 12)
-
-ggsave(GOfig2_2L, filename = "../../Plots/GOfig2_2L.jpeg", 
-          dpi = 300, height = 12, width = 12)
-```
-
-Chromosome arm 3R
-
-```{r}
-# arm 3R
-ChArm3R <- "3R"
-
-freq_coords_3R <- coord_data_full %>% filter(CHROM == ChArm3R)
-  
-# Use this code for entire chromosome plots
-StPos3R <- as.integer(min(freq_coords_3R$POS))
-EnPos3R <- as.integer(max(freq_coords_3R$POS))
-
-out_3R <- Reg_GOplot(ChArm3R, StPos3R, EnPos3R)
-
-rank_scango_3R <- out_3R[[1]]
-GOfig2_3R <- out_3R[[2]]
-
-ggsave(rank_scango_3R, filename = "../../Plots/rank_scanGO_3R.jpeg", 
-          dpi = 400, height = 12, width = 12)
-
-ggsave(GOfig2_3R, filename = "../../Plots/GOfig2_3R.jpeg", 
-          dpi = 300, height = 12, width = 12)
 ```
