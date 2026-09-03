@@ -127,6 +127,31 @@ FF_genomes_filtered <- FF_filter_status %>%
 
 filtered_out <- prefilter_length - length(FF_genomes_filtered$POS)
 
+print(paste0(
+  "Total number of unfiltered sites: ", prefilter_length))
+print(paste0("Total number of sites after filtering: ", 
+             length(FF_genomes_filtered$POS)))
+print(paste0("Number of sites filtered out: ", filtered_out))
+print(paste0("% of unfiltered sites filtered out: ", 
+             round(filtered_out/prefilter_length, 3)))
+
+mcols_rdepth_prefilter <- FF_filter_status %>% 
+  dplyr::select(starts_with("N_")) %>% 
+  summarise(across(everything(), mean))
+
+m_rdepth_prefilt <- round(mean(unlist(mcols_rdepth_prefilter)), 3)
+
+
+mcols_rdepth_filtered <- FF_genomes_filtered %>% 
+  dplyr::select(starts_with("N_")) %>% 
+  summarise(across(everything(), mean))
+
+m_rdepth_filtered <- round(mean(unlist(mcols_rdepth_filtered)), 3)
+
+print(paste0("Mean read depth before filtering: ",
+             m_rdepth_prefilt))
+print(paste0("Mean read depth after filtering: ",
+             m_rdepth_filtered))
 ```
 
 #### Save status data and filtered data
@@ -226,6 +251,51 @@ print(filters_upset)
 
 #### Plot read depth and allele frequency with different filtering criteria
 
+Histograms of read depth and allele frequencies after filtering
+
+```{r}
+FF_filtered_plots <- FF_genomes_filtered %>%
+pivot_longer(
+    cols = c(starts_with("freq_"), starts_with("N_")),
+    names_to = c(".value", "Population"),
+    names_pattern = "(freq_|N_)(.*)"
+  ) %>% rename(depth_ = N_) %>% 
+  mutate(ref_count = round(freq_ * depth_)) %>% 
+  # Removes all text after the second underscore,
+  # used to remove _G13_sample...
+  # this leaves freq_CON1, N_CON1, and so on.
+  mutate(Population = str_remove(Population, "_.*"))
+
+text_labels <- tibble(
+  x_pos = c(min_depth, m_rdepth_filtered, max_depth),
+  y_pos = 15,
+  label_text = as.character(
+    c(min_depth, m_rdepth_filtered, max_depth)))
+
+rdepth_hist <- FF_filtered_plots %>% 
+  ggplot(aes(x = depth_))  +
+  geom_histogram(aes(y = after_stat(log(count + 1))),
+       fill = 'lightgreen', color = 'darkgreen', bins = 80) + 
+  geom_text(data = text_labels, aes(x = x_pos, y = y_pos, label = label_text),
+            color = 'black', size = 5, vjust = 0.5, hjust = 0) +
+geom_vline(xintercept = c(min_depth, max_depth), color = 'salmon', linetype = 'dashed') +
+  geom_vline(xintercept = m_rdepth_filtered, color = 'darkblue')+
+  labs(x = "read_depth") +
+  theme_cowplot()
+
+print(rdepth_hist)
+
+freq_hist <- FF_filtered_plots %>% 
+  ggplot(aes(x = freq_))  +
+  geom_histogram(aes(y = after_stat(log(count + 1))),
+       fill = 'lightgreen', color = 'darkgreen', bins = 30) +
+geom_vline(xintercept = c(min_avgfreq, max_avgfreq), color = 'salmon', linetype = 'dashed') +
+  labs(x = "Reference allele frequency") +
+  theme_cowplot()
+
+print(freq_hist)
+```
+
 The plots of filters not being used are commented out, to save memory.
 
 ```{r}
@@ -311,7 +381,8 @@ print(freqfilt_plot)
 ### Patchwork filters plots
 
 ```{r}
-filters_fig <- depth_filter_plot/freqfilt_plot
+filters_fig <-wrap_elements(filters_upset)/rdepth_hist + 
+  plot_annotation(tag_levels = 'A')
 
 print(filters_fig)
 ```
@@ -321,7 +392,7 @@ print(filters_fig)
 ```{r}
 # saveRDS(filters_upset, "../../Plots/ggplot_files/filters_upset.RDS")
 
-ggsave(filters_upset, filename = "../../Plots/filter_upset.jpeg", dpi = 400, width = 6, height = 6)
+ggsave(filters_fig, filename = "../../Plots/f_upset_depth_fig.jpeg", dpi = 400, width = 10, height = 10)
 ```
 
 #### Scanplots by chromosome
