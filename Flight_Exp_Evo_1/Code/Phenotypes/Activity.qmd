@@ -292,7 +292,7 @@ summary(tukey_res)
 act_dist_fig <- cross_plot/selset_plot +
   plot_layout(guides = 'collect') +
   plot_annotation(
-  title = "Flight performance within a factorial framework of stimuli",
+  title = "Activity levels of flies: distance travelled in 5 minutes",
   tag_levels = 'A'
 )
 
