@@ -156,11 +156,11 @@ Mean_dist_plots <- Mean_dist %>%
   pivot_longer(cols = c(Selection, Light_Status, Fan_Status),
                names_to = "Factor", values_to = "fct_level") %>% 
   # Make boxplots for main effect comparisons
-  ggplot(aes(x = fct_level, y = meandist, color = Factor)) + 
+  ggplot(aes(x = fct_level, y = meandist)) + 
   facet_grid(.~Factor, scales = "free_x") +
-  geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5, color = 'purple4') +
   geom_point(aes(shape = PopReplicate), 
-             position = position_dodge(width = 0.5)) +
+  position = position_dodge(width = 0.5), color = 'purple', alpha = 0.5) +
   stat_summary(fun = "mean", color = "black", shape = "-", size = 4) + 
   scale_shape_manual(guide = 'none',
     values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
@@ -175,12 +175,14 @@ Mdist_full_plot <- Mean_dist %>%
   mutate(Light_Status = factor(str_replace(Light_Status, "^L_", "Light_")),
          Fan_Status = factor(str_replace(Fan_Status, "^F_", "Fan_"))) %>% 
   # Make boxplots for main effect comparisons
-  ggplot(aes(x = Selection, y = meandist, color = Selection, fill = Light_Status, group = interaction(Selection, Light_Status))) +
+  ggplot(aes(x = Selection, y = meandist, color = Selection, fill = Light_Status)) +
+  geom_boxplot(position = position_dodge(width = 0.75), outlier.shape = NA, alpha = 0.5, key_glyph = 'point') +
+  geom_point(aes(shape = PopReplicate, 
+                 group = interaction(Selection, Light_Status)),
+  position = position_jitterdodge(dodge.width = 0.75, jitter.width = 0.4),
+  alpha = 0.5) +
+  stat_summary(fun = "mean", color = "black", shape = "-", size = 4, show.legend = FALSE, position = position_dodge(width = 0.75)) +
   facet_grid(. ~ Fan_Status) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.5, position = position_dodge(width = 0.9), key_glyph = 'point') +
-  geom_point(aes(shape = PopReplicate), 
-             position = position_dodge(width = 0.9), alpha = 0.5) +
-  stat_summary(fun = "mean", color = "black", shape = "-", size = 4, position = position_dodge(width = 0.9), show.legend = FALSE)+
   scale_fill_manual(name = "Light Status",
     values = c("Light_OFF" = 'grey35', "Light_ON" = 'lightyellow')) +
   scale_shape_manual(name = "Replicate",
