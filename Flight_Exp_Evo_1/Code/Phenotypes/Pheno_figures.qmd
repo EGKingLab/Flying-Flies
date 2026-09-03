@@ -29,10 +29,10 @@ surv_plot <- readRDS("../../Plots/ggplot_files/surv_plot.RDS")
 Tweak existing plots as required
 
 ```{r}
-mass_plot <- mass_plot + guides(shape = 'none') + 
+mass_plot <- mass_plot + guides(color = 'none', shape = 'none') + 
   labs(x = NULL)
 
-surv_plot <- surv_plot + guides(shape = 'none')
+surv_plot <- surv_plot + guides(color = 'none', shape = 'none')
 
 print(mass_plot)
 print(surv_plot)
@@ -42,16 +42,16 @@ print(surv_plot)
 
 ```{r}
 lh_fig <- mass_plot/(surv_plot|fec_plot) + 
-  #plot_layout(guides = "collect") +
+  plot_layout(guides = "collect") +
   plot_annotation(
   title = "Life-history consequences of selection for improved flight performance",
   tag_levels = 'A'
-) & theme_cowplot() & theme(legend.position = 'bottom')
+) & theme_cowplot() & theme(legend.position = 'right')
   
 print(lh_fig)
 
 ggsave(lh_fig, filename = "../../Plots/LH_fig.jpeg", dpi = 400,
-       width = 10, height = 12)
+       width = 12, height = 12)
 ```
 
 ## Figure: Flight performance
