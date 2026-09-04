@@ -275,9 +275,91 @@ SNP_path_plot <- ggplot() +
 print(SNP_path_plot)
 ```
 
+#### Load frequency plot for significant sites
+
+```{r}
+freq_SNP_plot <- readRDS("../../Plots/ggplot_files/sigsites_freq_plt.RDS")
+
+freq_SNP_points <- freq_SNP_plot$layers[[1]]$data
+freq_SNP_segments <- freq_SNP_plot$layers[[2]]$data
+
+print(freq_SNP_plot)
+
+SNP_genes <- snp_pathways %>% 
+  dplyr::select(-snp_id) %>% 
+  mutate('SNP_ID' = paste(CHROM, POS, sep = '_')) %>% 
+  distinct(SNP_ID, .keep_all = TRUE) %>% 
+  # symbol is a list, this makes symbol a factor
+  mutate(symbol = sapply(symbol, 
+function(x) ifelse(length(x)>0, x[1], NA_character_)))
+    
+
+freq_SNP_genes <- freq_SNP_data %>% 
+  left_join(SNP_genes, 
+            by = c('SNP_ID', 'CHROM', 'POS', 'lm_adjPval')) %>% 
+  distinct(SNP_ID, .keep_all = TRUE) %>% 
+  mutate(x_center = as.numeric(as.factor(SNP_ID))) %>% 
+  mutate(xmin = x_center - 0.5, xmax = x_center + 0.5,
+         ymin = -Inf, ymax = Inf)%>% 
+  filter(symbol != "")
+
+chrom_labs <- c("2R" = "", "3L" = "3L", "3R" = "3R", "X" = "X")
+
+freq_SNPgenes_plt <- ggplot() +
+  geom_tile(data = freq_SNP_genes, 
+            aes(x = SNP_ID, y = 0,
+                fill = symbol), 
+            alpha = 0.5, height = Inf) +
+  geom_point(data = freq_SNP_points, aes(
+  x = SNP_ID, y = freq, color = Selection, shape = PopReplicate), 
+    alpha = 0.2) +
+  geom_segment(data = freq_SNP_segments, aes(
+    x = SNP_ID, xend = SNP_ID, y = selmin, yend = selmax), 
+    color = 'gray30', linewidth = 0.5, alpha = 0.8) +
+  facet_grid(.~CHROM, scales = "free_x", space = "free_x",
+           labeller = labeller(CHROM = as_labeller(chrom_labs))) +
+  stat_summary(data = freq_SNP_points, aes(
+    x = SNP_ID, y = freq, color = Selection), 
+    fun = mean, size = 1.8, shape = '-') +
+  scale_fill_brewer(palette = 'Accent') +
+  scale_color_manual(name = "Selection",
+ values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+ scale_shape_manual(name = "Replicate",
+ values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.1)) +
+  theme_cowplot() +
+   theme(axis.text.x = 
+     element_text(angle = 315, size = 6, hjust = 0.1, vjust = 0.5),
+   panel.grid.major.y = 
+     element_line(
+       color = 'lightgray', linewidth = 0.5, linetype = 'dotted'),
+   panel.background = element_rect(fill = 'white'),
+   panel.spacing = unit(0.15, "lines")) +
+  labs(y = "Reference allele frequency", x = "SNP_ID", 
+       shape = "Replicate")
+
+print(freq_SNPgenes_plt)
+
+```
+
+#### Assemble scanplot and freq plot figure
+
+```{r}
+scan_freq_genes_fig <- SNP_path_plot/free(freq_SNPgenes_plt) + 
+  plot_annotation(tag_levels = 'A')
+
+print(scan_freq_genes_fig)
+```
+
 ### Save ggplot data, ggplot figures, and enrichment tables
 
 ```{r}
+# Save assembled figure of scanplot and frequency plot
+ggsave(scan_freq_genes_fig, 
+       filename = "../../Plots/lmscan_frq_genesfig.jpeg",
+       dpi = 400, width = 12, height = 12)
+
+
 # enrichment plot data
 saveRDS(SNP_enrich_plt, "../../Plots/ggplot_files/SNP_enrich_plt.RDS")
 
