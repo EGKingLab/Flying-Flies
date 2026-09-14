@@ -168,9 +168,11 @@ distmod_complete <- lmer(data = act_dist, REML = FALSE,
 distmod_random <- lmer(data = act_dist, REML = FALSE,
   Tot_d ~ Selection*Sex + (1|PopRep) + (1|Selection:Assay_set))
 
-aictab(cand.set = 
+act_aic <- aictab(cand.set = 
          list(distmod_sel, distmod_sex, distmod_add, distmod_full, distmod_add_set, distmod_full_set, distmod_complete, distmod_random),
        modnames = models_comp)
+
+act_aic
 ```
 
 The results of AICc indicate that the model with an additive design of Selection and Sex with additive Assay_set and an interaction of Assay_set:Selection has the most support, with nearly equivalent support for the model with the full cross of Selection and Sex with additive Assay_set and an interaction of Assay_set:Selection. Going forward, we will analyze the full cross of Selection and Sex, with additive Assay_set and interaction of Assay_set:Selection.
@@ -199,6 +201,7 @@ cohens_f(support_mod)
 # Check this paper which talks about levels of random factor:
 # Gomes 2022, Ecology: 10.7717/peerj.12794
 VarCorr(support_mod)
+
 ```
 
 Results show a significant main effect of both Selection and Sex. There are major differences in the direction of significance value and effect size due to sample size differences in the denominator used for F value.
@@ -284,6 +287,11 @@ tukey_res <- emmeans(support_mod, pairwise ~ Selection:Assay_set,
                      adjust = 'tukey')
 
 summary(tukey_res)
+
+act_tables <- list(act_aic = act_aic,
+  a_actmod = tidy(anova(support_mod)),
+  e_actmod = eta_squared(support_mod),
+  tuk_actmod = tukey_res)
 ```
 
 ### Assemble plots by patchwork and save
@@ -302,6 +310,10 @@ ggsave(act_dist_fig, filename = "../../Plots/act_dist_fig.jpeg", dpi = 400, widt
 ```
 
 ### Save tables
+
+```{r}
+saveRDS(act_tables, "../../Tables/act_tables.RDS")
+```
 
 ## Time spent moving, and speed calculations
 

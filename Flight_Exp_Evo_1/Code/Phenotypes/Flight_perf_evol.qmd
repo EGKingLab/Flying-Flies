@@ -119,6 +119,15 @@ FPmod <- lmer(data = FPGen_data, formula = MeanCh ~ GenFP + (1|PopRepNest))
 a_FP <- anova(FPmod)
 e_FP <- eta_squared(FPmod)
 
+# Save ANOVA tables and eta-squared tables in a list
+fltevol_tables <- list(
+  a_selgen = tidy(a_selgen),
+  e_selgen = e_selgen,
+  a_CON = tidy(a_CON),
+  e_CON = e_CON,
+  a_FP = tidy(a_FP),
+  e_FP = e_FP
+)
 ```
 
 ## Plots
@@ -347,32 +356,36 @@ ggsave(flight_evol_scatter_all, filename = "../../Plots/flight_evol_scatter_all.
 Tables
 
 ```{r}
-# model with Selection and Generation: ANOVA
-gt2 <- a_fit_Fec_log %>% broom::tidy() %>% 
-  datasummary_df(fmt = 3, output = 'gt') %>% 
-  tab_header(title = "ANOVA results, log-transformed per capita fecundity")
-
-# eta-squared partial and cohens_f partial with fecundity log transformation
-gt3 <- e_fit_Fec_log  %>% 
-  datasummary_df(fmt = 3, output = 'gt') %>% 
-  tab_header(title = "Partial Eta-squared value, log-transformed per capita fecundity")
-
-# model without log transformation: ANOVA
-gt4 <- a_fit_Fec %>% broom::tidy() %>% 
-  datasummary_df(fmt = 3, output = 'gt') %>% 
-  tab_header(title = "ANOVA results, per capita fecundity")
+# Save list of tables
+saveRDS(fltevol_tables, "../../Tables/fltevol_tables.RDS")
 
 
-# correlation of total female population size and total fecundity
-# CON correlation
-CON_corr <- gt(tidy(corr_fecpop[[1]])) %>% 
-  tab_header(title = "Correlation of female population size and total fecundity: CON")
-  
-# FP correlation
-FP_corr <- gt(tidy(corr_fecpop[[2]])) %>% 
-  tab_header(title = "Correlation of female population size and total fecundity: FP")
-
-# Save all tables into a single docx
-gt_group(gt1, gt2, gt3, gt4, CON_corr, FP_corr) %>% 
-  gtsave("../../Tables/fecundity_tables.docx")
+# # model with Selection and Generation: ANOVA
+# gt1 <- a_selgen %>% broom::tidy() %>% 
+#   datasummary_df(fmt = 3, output = 'gt') %>% 
+#   tab_header(title = "ANOVA results, evolution of flight performance (both Selection and Generation)")
+# 
+# # eta-squared partial and cohens_f partial with fecundity log transformation
+# gt3 <- e_fit_Fec_log  %>% 
+#   datasummary_df(fmt = 3, output = 'gt') %>% 
+#   tab_header(title = "Partial Eta-squared value, log-transformed per capita fecundity")
+# 
+# # model without log transformation: ANOVA
+# gt4 <- a_fit_Fec %>% broom::tidy() %>% 
+#   datasummary_df(fmt = 3, output = 'gt') %>% 
+#   tab_header(title = "ANOVA results, per capita fecundity")
+# 
+# 
+# # correlation of total female population size and total fecundity
+# # CON correlation
+# CON_corr <- gt(tidy(corr_fecpop[[1]])) %>% 
+#   tab_header(title = "Correlation of female population size and total fecundity: CON")
+#   
+# # FP correlation
+# FP_corr <- gt(tidy(corr_fecpop[[2]])) %>% 
+#   tab_header(title = "Correlation of female population size and total fecundity: FP")
+# 
+# # Save all tables into a single docx
+# gt_group(gt1, gt2, gt3, gt4, CON_corr, FP_corr) %>% 
+#   gtsave("../../Tables/fecundity_tables.docx")
 ```

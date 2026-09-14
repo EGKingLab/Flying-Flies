@@ -120,7 +120,12 @@ fit_selcross5 <- lmer(meandist ~ Selection:Light_Status + Selection:Fan_Status +
 # Complete model
 fit_factorial6 <- lmer(meandist ~ Selection*Light_Status*Fan_Status + (1|PopRep), data = Mean_dist, REML = FALSE)
 
-aictab(cand.set = list(fit_sel1, fit_light2, fit_fan3, fit_main4, fit_selcross5, fit_factorial6))
+aicnames <- c("1.mainSel", "2.mainLight", "3.mainFan", "4.Additive",
+              "5.SelCross", "6.Fullmod")
+
+fact_aic <- aictab(cand.set = list(fit_sel1, fit_light2, fit_fan3, fit_main4, fit_selcross5, fit_factorial6), modnames = aicnames)
+
+fact_aic
 ```
 
 Based on AICc scores, the model with main additive effects of Selection, Light_Status and Fan_Status has been selected.
@@ -142,6 +147,15 @@ ANOVA on selected model
 anova_fit_main <- anova(fit_main_reml)
 
 tidy(anova_fit_main)
+```
+
+List of tables
+
+```{r}
+factflt_tables <- list(fact_aic = fact_aic,
+  a_fact_bestmod = tidy(anova_fit_main),
+  e_fact_bestmod = eta_squared(fit_main_reml)
+)
 ```
 
 ## Plots
@@ -210,6 +224,12 @@ print(fact_flight_plot)
 ggsave(fact_flight_plot, filename = "../../Plots/fact_flight_fig.jpeg", dpi = 400, width = 12, height = 12)
 
 saveRDS(Mean_dist_plots, file = "../../Plots/ggplot_files/Fact_mdist_plot.RDS")
+```
+
+Save tables
+
+```{r}
+saveRDS(factflt_tables, "../../Tables/factflt_tables.RDS")
 ```
 
 ## Zero inflated negative binomial distribution
