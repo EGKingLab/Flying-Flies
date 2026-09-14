@@ -14,6 +14,7 @@ library(cowplot)
 library(emmeans)
 library(broom)
 library(patchwork)
+library(RColorBrewer)
 
 theme_set(theme_cowplot())
 
@@ -343,7 +344,7 @@ FstHudson_htmp_mean <- ggplot(data = FF_FstHudson_mean,
     aes(x = Focal_pop, y = Comp_pop)) +
   geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
   
-  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
+  scale_fill_viridis_c(option = 'plasma', na.value = "white") +
   # 
   # scale_color_manual(
   #   values = c(
@@ -365,7 +366,7 @@ FstHudson_htmp_median <- ggplot(data = FF_FstHudson_median,
     aes(x = Focal_pop, y = Comp_pop)) +
   geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
   
-  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
+  scale_fill_viridis_c(option = 'plasma',na.value = "white") +
   labs(
     x = "Focal Population",
     y = "Compared Population",
@@ -613,6 +614,7 @@ Fhigh <- quantile(thetapi_Fst$mfst, 0.99)
 thetapi_Fst <- thetapi_Fst %>% 
   mutate(OutlierFst = mfst > Fhigh | mfst < Flow)
 
+pal_colors <- palette.colors(palette = "Okabe-Ito")
 
 # Make theta_pi ratio plot again, with lm results integrated
 ratio_thetapi_plt <- ggplot(data = thetapi_Fst, aes(x = start, y = RatioFPCON)) +
@@ -621,10 +623,11 @@ ratio_thetapi_plt <- ggplot(data = thetapi_Fst, aes(x = start, y = RatioFPCON)) 
   geom_vline(data = filter(thetapi_Fst, has_SNP),
              aes(xintercept = start), color = 'grey50',
              linewidth = 1.2, alpha = 0.2) +
-  geom_point(aes(color = OutlierRatio), alpha = 0.5) +
+  geom_point(aes(color = OutlierRatio, alpha = OutlierRatio)) +
   scale_color_manual(
-    values = c("FALSE" = 'steelblue', "TRUE" = 'red'),
+    values = c("FALSE" = pal_colors[3], "TRUE" = pal_colors[7]),
     labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
+   scale_alpha_manual(values = c("FALSE" = 0.2, "TRUE" = 0.8)) +
   labs(y = bquote("log2(" ~ theta[pi] ~ " Ratio (FP/CON))"),
        x = "Window start") + theme_cowplot() +
   theme(axis.text.x = element_blank(),
@@ -644,10 +647,11 @@ mFst_lm_plt <- ggplot(data = thetapi_Fst,
   geom_vline(data = filter(thetapi_Fst, has_SNP),
              aes(xintercept = start), color = 'grey50',
              linewidth = 1.2, alpha = 0.2) +
-  geom_point(aes(color = OutlierFst), alpha = 0.5) +
+  geom_point(aes(color = OutlierFst, alpha = OutlierFst)) +
   scale_color_manual(
-    values = c("FALSE" = 'lightyellow3', "TRUE" = 'red'),
+    values = c("FALSE" = pal_colors[3], "TRUE" = pal_colors[7]),
     labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
+  scale_alpha_manual(values = c("FALSE" = 0.2, "TRUE" = 0.8)) +
   labs(y = "Mean Fst (CON vs. FP)",
        x = "Chromosome arm") + theme_cowplot() +
   theme(axis.text.x = element_blank(),
