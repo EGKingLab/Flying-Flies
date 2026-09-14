@@ -55,6 +55,9 @@ fit_surv1 <- lmer(asqrt_Surv ~ Selection + (1|PopRep), data = Surv_data)
 
 anova(fit_surv1)
 eta_squared(fit_surv1)
+
+surv_tables <- list(a_surv = tidy(anova(fit_surv1)),
+                    e_surv = eta_squared(fit_surv1))
 ```
 
 ### Plots
@@ -82,4 +85,10 @@ print(surv_plot)
 
 # Save plot data
 saveRDS(surv_plot, file = "../../Plots/ggplot_files/surv_plot.RDS")
+```
+
+Save tables
+
+```{r}
+saveRDS(surv_tables, "../../Tables/surv_tables.RDS")
 ```
