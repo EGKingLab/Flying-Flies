@@ -79,8 +79,8 @@ fit_Fec_log <- lmer(data = Fecund_data, REML = TRUE,
 
 a_fit_Fec_log <- anova(fit_Fec_log)
 e_fit_Fec_log <- eta_squared(fit_Fec_log)
-c_fit_Fec_log <- cohens_f(fit_Fec_log)
-e_fit_Fec_log <- left_join(e_fit_Fec_log, c_fit_Fec_log, by = "Parameter")
+# c_fit_Fec_log <- cohens_f(fit_Fec_log)
+# e_fit_Fec_log <- left_join(e_fit_Fec_log, c_fit_Fec_log, by = "Parameter")
 
 # fit_Fec_logplate <- lmer(data = Fecund_data, REML = TRUE,
 #         log_Fec ~ Selection * Plate + (1|PopRep))
@@ -95,9 +95,9 @@ fit_Fec <- lmer(data = Fecund_data, REML = TRUE,
 a_fit_Fec <- anova(fit_Fec)
 e_fit_Fec <- eta_squared(fit_Fec)
 
-fec_tables <- list(aic_fec = aic_fec,
-                   a_feclog = tidy(a_fit_Fec_log),
-                   e_feclog = e_fit_Fec_log,
+fec_tables <- list(logfec_aic = aic_fec,
+                   a_logfec = tidy(a_fit_Fec_log),
+                   e_logfec = e_fit_Fec_log,
                    a_fec = tidy(a_fit_Fec),
                    e_fec = e_fit_Fec)
 ```
