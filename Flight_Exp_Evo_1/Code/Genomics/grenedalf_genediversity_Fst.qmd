@@ -625,7 +625,7 @@ ratio_thetapi_plt <- ggplot(data = thetapi_Fst, aes(x = start, y = RatioFPCON)) 
              linewidth = 1.2, alpha = 0.2) +
   geom_point(aes(color = OutlierRatio, alpha = OutlierRatio)) +
   scale_color_manual(
-    values = c("FALSE" = pal_colors[3], "TRUE" = pal_colors[7]),
+    values = c("FALSE" = pal_colors[8], "TRUE" = pal_colors[4]),
     labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
    scale_alpha_manual(values = c("FALSE" = 0.2, "TRUE" = 0.8)) +
   labs(y = bquote("log2(" ~ theta[pi] ~ " Ratio (FP/CON))"),
@@ -649,7 +649,7 @@ mFst_lm_plt <- ggplot(data = thetapi_Fst,
              linewidth = 1.2, alpha = 0.2) +
   geom_point(aes(color = OutlierFst, alpha = OutlierFst)) +
   scale_color_manual(
-    values = c("FALSE" = pal_colors[3], "TRUE" = pal_colors[7]),
+    values = c("FALSE" = pal_colors[8], "TRUE" = pal_colors[4]),
     labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
   scale_alpha_manual(values = c("FALSE" = 0.2, "TRUE" = 0.8)) +
   labs(y = "Mean Fst (CON vs. FP)",
