@@ -181,18 +181,22 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
   
   phap_chrom <- phap %>% rename(CHROM = ChArm, POS = Ppos) %>% filter(CHROM == ChArm) 
   phap <- phap[phap$ChArm==ChArm & phap$Ppos >= StPos & phap$Ppos <= EnPos & phap$Padj <= 0.05,]
-  
-  
-  # hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
-  #   geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey20") +
-  #   geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.5, color = "gold") +
-  #   geom_point(size = 0.5, alpha = 1/6) +
-  #   facet_grid(Haplotype ~.) +
-  #   xlab("Position (MB)") +
-  #   ylab("Frequency") +
-  #   scale_color_manual(name = "Selection",
-  #                      values = c("CON" = 'steelblue', "FP" = 'firebrick'))
-  
+
+
+  hplot <- ggplot(fdat_long, aes(POS/1e6,Freq, color = Linetype)) +
+    geom_vline(xintercept = phap$Ppos/1e6, linewidth = 0.5, color = "grey25", alpha = 0.8) +
+    geom_vline(xintercept = psnp$POS/1e6, linewidth = 0.5, color = "gold") +
+    geom_point(size = 0.5, alpha = 1/6) +
+    facet_grid(Haplotype ~.) +
+    xlab("Position (MB)") +
+    ylab("Frequency") +
+    scale_color_manual(name = "Selection",
+                       values = c("CON" = 'steelblue', "FP" = 'firebrick')) + 
+    guides(color = guide_legend(
+      override.aes = list(size = 4, alpha = 1))) +
+    theme_cowplot() +
+    theme(legend.title = element_text(face = 'bold'),
+        legend.position = 'top')
   
   
   # Plotting ranking of founder lines in contributing to differences
@@ -335,7 +339,8 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
   #print(heat_plot_GO)
 
   
-  chrom_fig <- ranks_plot/GO_reg_scan + plot_annotation(tag_levels = "A")
+  chrom_fig <- hplot + (ranks_plot/GO_reg_scan) + 
+    plot_annotation(tag_levels = "A")
   
   # GO_fig2 <- GO_matrix/heat_plot_GO + plot_annotation(tag_levels = "A")
   # 
@@ -361,10 +366,23 @@ for (chr in chrom_arms){
   
   rankscango_fig <- Reg_GOplot(chr, StPos, EnPos)
   # Save the rank and scan plot with GO integration
-  ggsave(rankscango_fig, filename = paste0("../../Plots/rank_scanGO_", chr, ".jpeg"), 
-            dpi = 400, height = 12, width = 12)
+  ggsave(rankscango_fig, filename = paste0("../../Plots/fullhapGO_", chr, ".jpeg"), 
+            dpi = 400, height = 17, width = 22)
   
   # remove outplots list to save memory
   rm(freq_coords_chrom, StPos, EnPos, rankscango_fig)
 }
+```
+
+```{r}
+freq_coords_chrom <- coord_data_full %>% filter(CHROM == '3R')
+  # Use this code for entire chromosome plots
+  StPos <- as.integer(min(freq_coords_chrom$POS))
+  EnPos <- as.integer(max(freq_coords_chrom$POS))
+  
+  try_fig <- Reg_GOplot('3R', StPos, EnPos)
+  
+  ggsave(try_fig, filename =
+    "../../Plots/try_fullhapgo3R.jpeg", 
+    dpi = 400, height = 17, width = 22)
 ```
