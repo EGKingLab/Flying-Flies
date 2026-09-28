@@ -1,0 +1,60 @@
+test,effect,p_value
+Sample balance chi-squared,balance,0.9999999998045117
+Centroid size ANOVA,selection,0.005789857
+Centroid size ANOVA,sex,1.3199570787825194e-77
+Centroid size ANOVA,selection:sex,0.020029164
+MANOVA: wing shape (allometry),Csize,1e-4
+MANOVA: wing shape (allometry),selection,1e-4
+MANOVA: wing shape (allometry),sex,0.018
+MANOVA: wing shape (allometry),selection:sex,0.3038
+MANOVA: wing shape (allometry),selection:replicate,1e-4
+MANOVA: wing shape (allometry),Residuals,NA
+PC1 coefficients,(Intercept),3.886655205633302e-8
+PC1 coefficients,selectionFP,0.029295608474298632
+PC1 coefficients,sexM,0.6117901772233829
+PC1 coefficients,Csize,1.1899794854303538e-8
+PC1 coefficients,selectionFP:sexM,0.079949659
+Bilateral symmetry (size): F-CON,ind,1e-4
+Bilateral symmetry (size): F-CON,side,0.7069
+Bilateral symmetry (size): F-CON,ind:side,NA
+Bilateral symmetry (size): F-CON,Total,NA
+Bilateral symmetry (shape): F-CON,ind,1e-4
+Bilateral symmetry (shape): F-CON,side,0.0014
+Bilateral symmetry (shape): F-CON,ind:side,NA
+Bilateral symmetry (shape): F-CON,Total,NA
+Bilateral symmetry (size): F-FP,ind,1e-4
+Bilateral symmetry (size): F-FP,side,0.5139
+Bilateral symmetry (size): F-FP,ind:side,NA
+Bilateral symmetry (size): F-FP,Total,NA
+Bilateral symmetry (shape): F-FP,ind,1e-4
+Bilateral symmetry (shape): F-FP,side,0.145
+Bilateral symmetry (shape): F-FP,ind:side,NA
+Bilateral symmetry (shape): F-FP,Total,NA
+Bilateral symmetry (size): M-CON,ind,1e-4
+Bilateral symmetry (size): M-CON,side,0.3518
+Bilateral symmetry (size): M-CON,ind:side,NA
+Bilateral symmetry (size): M-CON,Total,NA
+Bilateral symmetry (shape): M-CON,ind,1e-4
+Bilateral symmetry (shape): M-CON,side,0.3654
+Bilateral symmetry (shape): M-CON,ind:side,NA
+Bilateral symmetry (shape): M-CON,Total,NA
+Bilateral symmetry (size): M-FP,ind,1e-4
+Bilateral symmetry (size): M-FP,side,0.9737
+Bilateral symmetry (size): M-FP,ind:side,NA
+Bilateral symmetry (size): M-FP,Total,NA
+Bilateral symmetry (shape): M-FP,ind,1e-4
+Bilateral symmetry (shape): M-FP,side,0.0016
+Bilateral symmetry (shape): M-FP,ind:side,NA
+Bilateral symmetry (shape): M-FP,Total,NA
+DA: centroid size,(Intercept),0.7674038127969158
+DA: centroid size,selectionFP,0.8077089585815307
+DA: centroid size,sexM,0.41742728848834665
+DA: centroid size,selectionFP:sexM,0.8488560545445021
+FA: centroid size,(Intercept),4.64593611572918e-4
+FA: centroid size,selectionFP,0.6402966077203278
+FA: centroid size,sexM,0.303530222
+FA: centroid size,selectionFP:sexM,0.9571592783588105
+FA: shape,(Intercept),6.685202817278213e-6
+FA: shape,selectionFP,0.4039854638844701
+FA: shape,sexM,0.40687133877650794
+FA: shape,selectionFP:sexM,0.17843434126234367
