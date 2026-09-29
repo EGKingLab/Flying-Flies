@@ -267,10 +267,41 @@ activity_Tukey_adj <- tabs_list[[2]] %>%
 
 wing_pvals_adj <- tabs_list[[3]] %>% 
   dplyr::select(test, effect, p.value, adj_pval)
+
+tabs_anova <- Phenotypes_ANOVA_adj %>% group_split(Table_Name)
 ```
 
 ## Save tables
 
 ```{r}
 write_csv(wing_pvals_adj, "../../Tables/wing_pvals_adj.csv")
+```
+
+#### Save activity assay tables
+
+```{r}
+# activity tables
+act_aic_tab <- activity_AIC %>% 
+  dplyr::select('Model formula' = Modnames, K, AICc, Delta_AICc,
+  'AICc weight' = AICcWt, LL) %>% 
+  datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_header(
+    title = "AICc results for models fit for activity assay")
+
+act_ANOVA_adj <- tabs_anova[[1]] %>% 
+  dplyr::select(-(1:3)) %>% 
+  datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_header(title = "ANOVA table for activity assay")
+
+act_tuk_adj <- activity_Tukey_adj %>% 
+  datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_header(title = "Tukey HSD results for activity assay ANOVA")
+
+act_etasq <- activity_etasq %>% dplyr::select(-1, -2) %>% 
+  datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_header(title = "eta-squared table for activity assay")
+
+# Save all activity tables into a single docx
+gt_group(act_aic_tab, act_ANOVA_adj, act_tuk_adj, act_etasq) %>% 
+  gtsave("../../Tables/activity_tables.docx")
 ```
