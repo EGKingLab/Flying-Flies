@@ -90,16 +90,20 @@ F_Mass_data <- Mass_data %>% filter(Sex == "Female")
 fit_sel_f <- lmer(data = F_Mass_data, REML = TRUE,
                 DryMass ~ Selection + (1|PopRep))
 anova(fit_sel_f)
+eta_squared(fit_sel_f)
 
 M_Mass_data <- Mass_data %>% filter(Sex == "Male")
 
 fit_sel_m <- lmer(data = M_Mass_data, REML = TRUE,
                 DryMass ~ Selection + (1|PopRep))
 anova(fit_sel_m)
+eta_squared(fit_sel_m)
 
 mass_tables <- list(e_fullmassmod = eta_squared(fit_full_reml),
                     a_fit_sel_f = tidy(anova(fit_sel_f)),
-                    a_fit_sel_m = tidy(anova(fit_sel_m)))
+                    a_fit_sel_m = tidy(anova(fit_sel_m)),
+                    e_fit_sel_f = eta_squared(fit_sel_f),
+                    e_fit_sel_m = eta_squared(fit_sel_m))
 ```
 
 ### Plots
