@@ -197,3 +197,78 @@ This script runs the PCA on the filtered data
 
 It saves supplementary figure X, containing the biplot and the screeplot
 in: `Flight_Exp_Evo_1/Plots/PCA_fig.jpeg`
+
+### Linear model: SNP differentiation analysis
+
+Run the .txt file:
+`Flight_Exp_Evo_1/Code/Genomics/multi_looper_SNP.txt`
+
+which loops over all chromosome arm names and 
+runs site-wise analysis using the code in:
+`Flight_Exp_Evo_1/Code/Genomics/SNP_multi_loop.R`
+
+This saves the following files:
+`Big_data/SNP_diff2L.RDS`; `Big_data/SNP_diff2R.RDS`; `Big_data/SNP_diff3L.RDS`;
+`Big_data/SNP_diff3R.RDS`; `Big_data/SNP_diffX.RDS`
+
+Next, run the QMD file:
+`Flight_Exp_Evo_1/Code/Genomics/SNP_differentiation.qmd`
+
+This joins the saved data files for the 5 chromosome arms, and performs P-value
+FDR correction.
+All P-values from linear model are saved in:
+`Big_data/lm_adjpvals_SNPs.RDS`
+significant sites (P-value < 0.05) are saved in:
+`Big_data/lm_targetSNPs.RDS`
+
+A plot for frequency of significant sites is saved as an RDS file
+(to be integrated with gene mapping later)
+`Flight_Exp_Evo_1/Plots/ggplot_files/sigsites_freq_plt.RDS`
+
+A compiled figure of read depth of significant sites, and a scatter plot of
+frequency of significant sites and read depth of significant sites is saved
+(supplementary figure X):
+`Flight_Exp_Evo_1/Plots/depth_freq_SNPfig.jpeg`
+
+### Gene diversity and Fst calculations using Grenedalf
+(Figure 8 and supplementary figures X, Y)
+
+Run the QMD file:
+`Flight_Exp_Evo_1/Code/Genomics/grenedalf_genediversity_Fst.qmd`
+
+This loads the data in `Big_data/FF_genomes_filtered.RDS`
+
+and runs code for gene diversity and Fst using Grenedalf
+https://github.com/lczech/grenedalf
+
+A formatted input file is saved in:
+`Big_data/FF_grenedalf_input.csv`
+
+Gene diversity code saves the files:
+`Big_data/grenedalf_diversity_out/diversity.csv`
+`Big_data/grenedalf_diversity_out/gdalf_div_log.txt`
+`Big_data/grenedalf_diversity_out/gdalf_div_errors.txt`
+
+Fst (Hudson) code saves the files:
+`Big_data/grenedalf_fsthudson_out/fst.csv`
+`Big_data/grenedalf_fsthudson_out/gdalf_fsthudson_log.txt`
+`Big_data/grenedalf_fsthudson_out/gdalf_fsthudson_errors.txt`
+
+Fst (Nei) code saves the files:
+`Big_data/grenedalf_fstnei_out/fst.csv`
+`Big_data/grenedalf_fstnei_out/gdalf_fstnei_log.txt`
+`Big_data/grenedalf_fstnei_out/gdalf_fstnei_errors.txt`
+
+Figure 8 is saved in:
+`Flight_Exp_Evo_1/Plots/div_fst_fig.jpeg`
+
+supplementary figure X (gene diveristy distribution):
+supplementary figure Y (Fst Hudson CONvsFP):
+
+supplementary figure Z (heatmaps of Fst Hudson and Fst Nei):
+`Flight_Exp_Evo_1/Plots/Fst_heatmp_fig.jpeg`
+
+### Haplotype analysis
+
+
+### Gene Ontology and Enrichment analyses
