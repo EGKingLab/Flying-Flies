@@ -22,19 +22,19 @@ Processed_data: ..? (delete?)
 
 Run the following QMD file:
 
-Flight_Exp_Evo_1/Code/Phenotypes/Flight_perf_evol.qmd
+`Flight_Exp_Evo_1/Code/Phenotypes/Flight_perf_evol.qmd`
 
 The script reads data stored in the Raw_data folder and generates figure 2 from the manuscript in:
 
-Flight_Exp_Evo_1/Plots/flight_evol_fig.jpeg
+`Flight_Exp_Evo_1/Plots/flight_evol_fig.jpeg`
 
 As well as the supplementary figure X in:
 
-Flight_Exp_Evo_1/Plots/flight_evol_scatter_all.jpeg
+`Flight_Exp_Evo_1/Plots/flight_evol_scatter_all.jpeg`
 
 An RDS file containing the list of all tables is saved in:
 
-Flight_Exp_Evo_1/Tables/fltevol_tables.RDS
+`Flight_Exp_Evo_1/Tables/fltevol_tables.RDS`
 
 
 
@@ -43,15 +43,88 @@ Flight_Exp_Evo_1/Tables/fltevol_tables.RDS
 
 Run the following QMD file:
 
-Flight_Exp_Evo_1/Code/Phenotypes/Factorial.qmd
+`Flight_Exp_Evo_1/Code/Phenotypes/Factorial.qmd`
 
 The script reads data stored in the Raw_data folder and generates figure 3 from the manuscript in:
 
-Flight_Exp_Evo_1//Plots/fact_flight_fig.jpeg
+`Flight_Exp_Evo_1/Plots/fact_flight_fig.jpeg`
 
 An RDS file containing the list of all tables is saved in:
 
-Flight_Exp_Evo_1/Tables/factflt_tables.RDS
+`Flight_Exp_Evo_1/Tables/factflt_tables.RDS`
 
 
 
+### Generating plots for the activity measurement assay (figure 4)
+
+Run the following file _first_:
+`Flight_Exp_Evo_1/Code/Phenotypes/PreProcess_Activity.R`
+
+Next, run the QMD file:
+`Flight_Exp_Evo_1/Code/Phenotypes/Activity.qmd`
+
+The script reads data stored in the Raw_data folder and generates figure 4 from the manuscript in:
+
+`Flight_Exp_Evo_1/Plots/act_dist_fig.jpeg`
+
+An RDS file containing the list of all tables is saved in:
+
+`Flight_Exp_Evo_1/Tables/act_tables.RDS`
+
+
+### Generating plots for wing morphometrics (figure 5)
+
+
+### Generating plots for life-history data: dry mass, survivorship and fecundity (figure 6)
+#### Dry mass
+Run the following QMD file:
+
+`Flight_Exp_Evo_1/Code/Phenotypes/DryMass.qmd`
+
+The script reads data stored in the Raw_data folder and generates an RDS file for figure 6A:
+
+`Flight_Exp_Evo_1/Plots/ggplot_files/mass_plot.RDS`
+
+An RDS file containing the list of all tables is saved in:
+
+`Flight_Exp_Evo_1/Tables/mass_tables.RDS`
+
+#### Egg-to-adult survivorship
+Run the following QMD file:
+
+`Flight_Exp_Evo_1/Code/Phenotypes/Survivorship.qmd`
+
+The script reads data stored in the Raw_data folder and generates an RDS file for figure 6B:
+
+`Flight_Exp_Evo_1/Plots/ggplot_files/surv_plot.RDS`
+
+An RDS file containing the list of all tables is saved in:
+
+`Flight_Exp_Evo_1/Tables/surv_tables.RDS`
+
+#### Fecundity
+Run the following QMD file:
+
+`Flight_Exp_Evo_1/Code/Phenotypes/Fecundity.qmd`
+
+The script reads data stored in the Raw_data folder and generates an RDS file for figure 6C:
+
+`Flight_Exp_Evo_1/Plots/ggplot_files/fec_plot.RDS`
+
+An RDS file containing the list of all tables is saved in:
+
+`Flight_Exp_Evo_1/Tables/fec_tables.RDS`
+
+The supplementary figure X for fecundity data is saved in:
+
+`Flight_Exp_Evo_1/Plots/fec_supp_fig.jpeg`
+
+#### Compiling life-history data figure 6:
+Run the following QMD file:
+`Flight_Exp_Evo_1/Code/Phenotypes/Pheno_figures.qmd`
+
+The script compiles the life-history figure from the RDS files of plots saved in `Flight_Exp_Evo_1/Plots/ggplot_files/`
+
+The figure is saved in:
+
+`Flight_Exp_Evo_1/Plots/LH_fig.jpeg`
