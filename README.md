@@ -128,3 +128,13 @@ The script compiles the life-history figure from the RDS files of plots saved in
 The figure is saved in:
 
 `Flight_Exp_Evo_1/Plots/LH_fig.jpeg`
+
+### Adjusting P-values and generating tables
+Make sure all the table RDS files mentioned above have been saved in `Flight_Exp_Evo_1/Tables/`
+
+Run the following QMD file:
+`Flight_Exp_Evo_1/Code/Phenotypes/Tables_and_PAdjust.qmd`
+
+This script adjusts the P-values and generates the following .docx files containing compiled tables in `Flight_Exp_Evo_1/Tables/`:
+`activity_tables.docx`; `factflight_tables.docx`; `fecundity_tables.docx`; `flightevol_tables.docx`; `drymass_tables.docx`; `survivorship_tables.docx`
+
