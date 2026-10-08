@@ -138,3 +138,38 @@ Run the following QMD file:
 This script adjusts the P-values and generates the following .docx files containing compiled tables in `Flight_Exp_Evo_1/Tables/`:
 `activity_tables.docx`; `factflight_tables.docx`; `fecundity_tables.docx`; `flightevol_tables.docx`; `drymass_tables.docx`; `survivorship_tables.docx`
 
+## Instructions for generating figures and tables for genomic data
+
+### Aligning, cleanup and variant calling, parsing SNP tables
+
+The nextflow code for alignment and variant calling are present in:
+`Flight_Exp_Evo_1/Code/Genomics/nf_vc_dsl2.nf`
+
+The following SBatch file was used to run the nextflow code:
+`Flight_Exp_Evo_1/Code/Genomics/sh_vc_dsl2.sh`
+
+The generated .vcf files are parsed with the following files to generate SNP tables:
+`Flight_Exp_Evo_1/Code/Genomics/SNPtable_parseVCF.pl`
+
+The SNP table is saved as a .txt file in:
+`Big_data/FlyingFlies_SNPtable.txt`
+
+### Filtering based on read depth and allele frequency
+The following script filters the SNP data, and generates supplementary figure X:
+`Flight_Exp_Evo_1/Code/Genomics/Clean_and_Filter_data.qmd`
+
+The filtered data, to be used for all downstream analyses, is saved in:
+`Big_data/FF_genomes_filtered.RDS`
+
+Supplementary figure X, containing the upset plot for filtered data and the read depth distribution is saved in:
+`Flight_Exp_Evo_1/Plots/f_upset_depth_fig.jpeg`
+
+### PCA (supplementary figure X)
+Run the following QMD file:
+`Flight_Exp_Evo_1/Code/Genomics/PCA.qmd`
+
+This script runs the PCA on the filtered data `Big_data/FF_genomes_filtered.RDS`
+
+It saves supplementary figure X, containing the biplot and the screeplot in:
+`Flight_Exp_Evo_1/Plots/PCA_fig.jpeg`
+
