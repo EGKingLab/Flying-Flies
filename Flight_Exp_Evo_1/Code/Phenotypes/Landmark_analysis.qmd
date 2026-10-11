@@ -1,0 +1,1556 @@
+---
+title: "Landmark analysis"
+format:
+  html:
+    toc: true
+    number-depth: 3
+    toc-location: left
+    embed-resources: true
+---
+
+## Note on P-values
+
+The P-values in these tables are not corrected for multiple comparisons. The P-values in the tables included in the manuscript have been corrected, so the two sets of P-values do not match. This is expected, and the tables in the manuscript should be taken as the correct set.
+
+
+```{r}
+#| label: setup
+#| echo: true
+#| message: false
+#| warning: false
+
+# scale_color_manual(
+#   name = "Selection",
+#   values = c("CON" = "steelblue", "FP" = "firebrick")
+# ) +
+#   scale_shape_manual(
+#     name = "Replicate",
+#     values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)
+#   )
+
+Sys.setenv(RGL_USE_NULL = TRUE)
+
+library(tidyverse)
+library(readxl)
+library(cowplot)
+library(geomorph)
+library(RRPP)
+library(ggrepel)
+library(ggsci)
+library(ggridges)
+library(gt)
+library(lmerTest)
+library(emmeans)
+
+theme_set(theme_cowplot())
+```
+
+```{r}
+#| label: functions
+#| echo: false
+wireframe_pts <- tribble(
+  ~pt1 , ~pt2 ,
+     1 ,    2 ,
+     2 ,    3 ,
+     3 ,    4 ,
+     4 ,    5 ,
+     5 ,    6 ,
+     6 ,   12 ,
+    12 ,    1 ,
+     7 ,    8 ,
+     9 ,   10 ,
+    10 ,   11 ,
+    11 ,   12 ,
+    12 ,    9 ,
+     2 ,    8 ,
+     3 ,   10 ,
+     8 ,    9 ,
+     7 ,   12 ,
+     1 ,    7 ,
+     4 ,   11
+)
+
+PC_wireframe <- function(
+  PCA = NULL,
+  g,
+  wireframe_pts,
+  x = "X",
+  y = "Y",
+  label_size = 4,
+  mirror_x = FALSE,
+  mirror_y = FALSE,
+  nudge_scale = 0.03,
+  nudge_override = list(),
+  scores = NULL,
+  axis_name = "PC1"
+) {
+  # Determine which points to plot
+  pts_to_plot <- unique(unlist(wireframe_pts)) |> as.numeric() |> sort()
+
+  # Use supplied scores if given, otherwise fall back to PC1 from PCA
+  PC <- if (is.null(scores)) PCA$x[, 1] else scores
+  min_label <- paste0("min(", axis_name, ")")
+  max_label <- paste0("max(", axis_name, ")")
+
+  preds <- shape.predictor(
+    g$coords,
+    x = PC,
+    Intercept = FALSE,
+    pred1 = min(PC),
+    pred2 = max(PC)
+  )
+
+  PC_min <- preds$pred1 |>
+    as.data.frame() |>
+    rowid_to_column(var = "Point_num") |>
+    mutate(PC = min_label, Point = "")
+  PC_max <- preds$pred2 |>
+    as.data.frame() |>
+    rowid_to_column(var = "Point_num") |>
+    mutate(PC = max_label, Point = as.character(Point_num))
+
+  PC1 <- bind_rows(PC_min, PC_max) |>
+    mutate(PC = fct_inorder(PC))
+
+  # Filter by points_to_plot
+  PC1 <- PC1 |>
+    filter(Point_num %in% pts_to_plot)
+
+  # Set axes to plot
+  PC1$x <- PC1[[x]]
+  PC1$y <- PC1[[y]]
+
+  # Flip x and/or y if required
+  if (mirror_x) {
+    PC1$x <- -1 * PC1$x
+  }
+  if (mirror_y) {
+    PC1$y <- -1 * PC1$y
+  }
+
+  # Figure out which segments to plot
+  # Make a tibble with the columns for geom_segment()
+  wire_segments <- map(
+    .x = seq_len(nrow(wireframe_pts)),
+    .f = function(ii, wireframe_pts, PC1) {
+      pts_sub <- slice(wireframe_pts, ii)
+
+      pt1_min <- PC1 |> filter(Point_num == pts_sub$pt1[1] & PC == min_label)
+      pt2_min <- PC1 |> filter(Point_num == pts_sub$pt2[1] & PC == min_label)
+
+      seg_min <- tibble(
+        PC = min_label,
+        x = pt1_min$x,
+        xend = pt2_min$x,
+        y = pt1_min$y,
+        yend = pt2_min$y
+      )
+
+      pt1_max <- PC1 |>
+        filter(Point_num == pts_sub$pt1[1] & PC == max_label)
+      pt2_max <- PC1 |>
+        filter(Point_num == pts_sub$pt2[1] & PC == max_label)
+
+      seg_max <- tibble(
+        PC = max_label,
+        x = pt1_max$x,
+        xend = pt2_max$x,
+        y = pt1_max$y,
+        yend = pt2_max$y
+      )
+      bind_rows(seg_min, seg_max)
+    },
+    wireframe_pts = wireframe_pts,
+    PC1 = PC1
+  ) |>
+    list_rbind() |>
+    mutate(PC = fct_inorder(PC))
+
+  ggplot() +
+    geom_segment(
+      data = wire_segments,
+      aes(x = x, xend = xend, y = y, yend = yend, color = PC)
+    ) +
+    geom_point(data = PC1, aes(x, y, color = PC), size = 1.5) +
+    geom_text(
+      data = {
+        pts_labels <- PC1 |>
+          filter(PC == max_label, Point != "") |>
+          mutate(
+            cx = mean(x),
+            cy = mean(y),
+            dx = x - cx,
+            dy = y - cy,
+            len = sqrt(dx^2 + dy^2),
+            label_x = x + dx / len * nudge_scale,
+            label_y = y + dy / len * nudge_scale
+          )
+        for (pt in names(nudge_override)) {
+          idx <- pts_labels$Point_num == as.integer(pt)
+          pts_labels$label_x[idx] <-
+            pts_labels$x[idx] + nudge_override[[pt]][1]
+          pts_labels$label_y[idx] <-
+            pts_labels$y[idx] + nudge_override[[pt]][2]
+        }
+        pts_labels
+      },
+      aes(label_x, label_y, label = Point),
+      size = label_size,
+      color = "black"
+    ) +
+    coord_equal() +
+    scale_color_manual(values = c("#009E73", "#E69F00"), name = NULL) +
+    ggpubr::theme_transparent() +
+    theme(legend.position = "none", plot.margin = unit(c(0, 0, 0, 0), "cm"))
+}
+
+#' Create gt() table for EDMA FDM
+#'
+#' Differences are considered substantial if the difference between groups
+#' for a given inter-landmark distance was >3% (i.e., a ratio of
+#' <0.97 or >1.03) and if 95% confidence intervals did not encompass
+#' a ratio of 1.
+#'
+#' @param x Object of class "edma_fdm"
+#'
+#' @return A class `gt_tbl` `gt` package table.
+#' @export
+#'
+fdm_table <- function(x) {
+  if (!inherits(x, "edma_fdm")) {
+    stop("x should be class 'edma_fdm'")
+  }
+
+  fds <- get_fdm(x) |> as_tibble()
+
+  fds <- fds |>
+    filter(dist > 1.03 | dist < 0.97) |>
+    filter(lower > 1 | upper < 1) |>
+    arrange(dist)
+
+  fds_tbl <- fds |>
+    gt() |>
+    cols_merge(
+      columns = c(lower, upper),
+      pattern = "<<{1} - {2}>>"
+    ) |>
+    cols_label(
+      row = "Landmark 1",
+      col = "Landmark 2",
+      dist = "Length",
+      lower = "95% CI"
+    ) |>
+    cols_align(align = "center", columns = lower) |>
+    tab_options(column_labels.font.weight = "bold") |>
+    tab_header(title = md("**Form Distance Testing**")) |>
+    tab_footnote(footnote = md(paste0("*n* total = ", nrow(fds))))
+  return(fds_tbl)
+}
+```
+
+
+## Data preparation
+
+```{r}
+#| label: load-landmarks
+
+LM <- read_csv(
+  "../../../Raw_data/measurements.csv",
+  show_col_types = FALSE,
+  name_repair = "unique_quiet"
+) |>
+  mutate(
+    image = str_remove(image, ".jpg")
+  ) |>
+  filter(analysis == "keep")
+```
+
+### Check likelihoods
+
+```{r}
+LM |>
+  select(image, contains("likelihood")) |>
+  drop_na() |>
+  pivot_longer(
+    cols = contains("likelihood"),
+    values_to = "Likelihood",
+    names_to = "Landmark"
+  ) |>
+  ggplot(aes(Likelihood)) +
+  geom_histogram(bins = 30) +
+  facet_wrap("Landmark")
+
+LM <- LM |> select(-contains("likelihood"))
+```
+
+
+### Filter sample data to only use flies with complete landmark sets
+
+```{r}
+#| label: filter-sample
+# Relabel landmark columns to match later analysis
+# l1_x -> x1, l1_y -> y1, etc.
+# Rescale
+# 10224 px = 11.15345 mm = 11153.45 µm
+# 1 px = 0.001090909 mm = 1.09 µm
+
+scale_coords <- function(x, scaling = (11.15345 / 10224)) x * scaling
+
+LM <- LM |>
+  rename_with(
+    ~ str_replace(.x, "l(\\d+)_(x|y)", "\\2\\1")
+  ) |>
+  mutate(
+    across(starts_with("x"), ~ scale_coords(.x)),
+    across(starts_with("y"), ~ scale_coords(.x))
+  )
+
+WS <- read_excel("../../../Raw_data/WingImage_DataSheet_2026.xlsx") |>
+  filter(PRESENT == "wing") |>
+  unite(slideN, slideC, col = "image", remove = FALSE)
+
+# Check for mismatches
+# Landmarks not in wing data
+LM$image[LM$image %notin% WS$image]
+
+# Wing data not in landmarks
+WS$image[WS$image %notin% LM$image]
+
+WS <- WS |>
+  select(-Notes) |>
+  separate(
+    col = pops,
+    into = c("selection", NA),
+    sep = "-",
+    remove = FALSE
+  ) |>
+  mutate(selection = if_else(selection == "C", "CON", selection)) |>
+  rename(replicate = pops)
+
+WS <- left_join(WS, LM, by = join_by(image)) |>
+  drop_na(x1:y12) |>
+  select(-IMG_ID)
+```
+
+`{r} nrow(WS)` wings remain after filtering.
+
+### Split data into left and right wings
+
+```{r}
+#| label: split-wings
+WS_L <- WS |> filter(side == "Left")
+WS_R <- WS |> filter(side == "Right")
+
+WS_all <- bind_rows(WS_R, WS_L)
+```
+
+### Summary counts
+
+```{r}
+#| label: counts
+#| echo: false
+
+WS_all |>
+  count(selection, side, sex) |>
+  pivot_wider(
+    names_from = c(side, sex),
+    values_from = n,
+    values_fill = 0
+  ) |>
+  relocate(Left_F, Right_F, Left_M, Right_M, .after = selection) |>
+  rowwise() |>
+  mutate(Total = sum(c_across(-selection))) |>
+  ungroup() |>
+  gt() |>
+  cols_label(
+    selection = "Selection",
+    Left_F = "Female L",
+    Right_F = "Female R",
+    Left_M = "Male L",
+    Right_M = "Male R"
+  ) |>
+  grand_summary_rows(
+    columns = where(is.numeric),
+    fns = list(Total = ~ sum(.x, na.rm = TRUE)),
+    fmt = ~ fmt_number(., decimals = 0)
+  )
+
+counts_table <- WS_all |>
+  count(selection, replicate, side, sex) |>
+  pivot_wider(
+    names_from = c(side, sex),
+    values_from = n,
+    values_fill = 0
+  ) |>
+  rowwise() |>
+  mutate(Total = sum(c_across(c(Left_F, Left_M, Right_F, Right_M)))) |>
+  ungroup() |>
+  gt(
+    rowname_col = "replicate",
+    groupname_col = "selection"
+  ) |>
+  tab_spanner(
+    label = "Left",
+    columns = starts_with("Left")
+  ) |>
+  tab_spanner(
+    label = "Right",
+    columns = starts_with("Right")
+  ) |>
+  cols_label(
+    Left_F = "Female",
+    Left_M = "Male",
+    Right_F = "Female",
+    Right_M = "Male"
+  ) |>
+  summary_rows(
+    fns = list(Mean = ~ mean(.x, na.rm = TRUE)),
+    fmt = ~ fmt_number(., decimals = 1)
+  ) |>
+  grand_summary_rows(
+    columns = c(Left_F, Left_M, Right_F, Right_M, Total),
+    fns = list(Total = ~ sum(.x, na.rm = TRUE)),
+    fmt = ~ fmt_number(., decimals = 0)
+  ) |>
+  tab_header(
+    title = "Wing counts by replicate, side, and sex"
+  ) |>
+  text_replace(
+    pattern = "^CON$",
+    replacement = "Control",
+    locations = cells_row_groups()
+  ) |>
+  text_replace(
+    pattern = "^FP$",
+    replacement = "Flight Performance",
+    locations = cells_row_groups()
+  )
+counts_table
+
+counts_table |> gtsave(filename = "Table_SampleCounts.docx")
+```
+
+```{r}
+chisq_balance <- WS_all |>
+  count(selection, replicate, side, sex) |>
+  pull(n) |>
+  chisq.test()
+chisq_balance
+```
+
+### Convert landmark coordinates to array format
+
+```{r}
+#| label: convert-geomorph
+WS_coords_all <- WS_all |>
+  select(x1:y12) |>
+  arrayspecs(p = 12, k = 2)
+
+WS_data_all <- WS_all |>
+  select(replicate, selection, inds, image, sex, side)
+```
+
+
+## Right side wings only
+
+```{r}
+#| label: right-only-data
+r_idx <- WS_data_all$side == "Right"
+
+WS_coords_R <- WS_coords_all[,, r_idx]
+WS_data_R <- WS_data_all |> filter(side == "Right")
+
+g_R <- gpagen(WS_coords_R, print.progress = FALSE)
+PCA_R <- gm.prcomp(A = g_R$coords)
+
+pct_var_R <- round(
+  100 * PCA_R$d^2 / sum(PCA_R$d^2),
+  1
+)
+
+WS_data_R <- WS_data_R |>
+  mutate(
+    Csize = g_R$Csize,
+    PC1 = PCA_R$x[, 1],
+    PC2 = PCA_R$x[, 2],
+    PC3 = PCA_R$x[, 3]
+  )
+```
+
+### Centroid size
+
+```{r}
+#| label: centroid-size
+WS_data_R <- WS_data_R |>
+  mutate(
+    rep_num = str_extract(replicate, "\\d+")
+  )
+
+c_size <- ggplot(
+  WS_data_R,
+  aes(x = selection, y = Csize, color = selection)
+) +
+  geom_boxplot(
+    outlier.shape = NA,
+    width = 0.6,
+    linewidth = 0.5
+  ) +
+  geom_point(
+    aes(shape = rep_num, group = rep_num),
+    position = position_dodge(width = 0.6),
+    size = 1,
+    alpha = 0.7
+  ) +
+  facet_grid(. ~ sex) +
+  labs(y = expression(Centroid ~ Size ~ (mm^2))) +
+  scale_color_manual(
+    name = "Selection",
+    values = c("CON" = "steelblue", "FP" = "firebrick"),
+    guide = guide_legend(
+      override.aes = list(linetype = 0)
+    )
+  ) +
+  scale_shape_manual(
+    name = "Replicate",
+    values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)
+  ) +
+  theme(axis.title.x = element_blank())
+c_size
+
+fm <- lmer(
+  Csize ~ selection * sex + (1 | replicate),
+  data = WS_data_R
+)
+summary(fm)
+
+## LS Means
+csize_lsmeans <- emmeans(fm, ~ selection * sex) |>
+  as_tibble() |>
+  relocate(sex, .before = selection) |>
+  gt() |>
+  fmt_number(
+    columns = c(emmean, SE, lower.CL, upper.CL),
+    decimals = 3
+  ) |>
+  fmt_number(columns = df, decimals = 2) |>
+  cols_label(
+    selection = "Selection",
+    sex = "Sex",
+    emmean = "Mean",
+    lower.CL = "Lower CI",
+    upper.CL = "Upper CI"
+  )
+csize_lsmeans
+csize_lsmeans |> gtsave(filename = "Table_CentroidSize_LSmeans.docx")
+
+## ANOVA table
+csize_anova <- anova(fm) |>
+  as.data.frame() |>
+  rownames_to_column("Effect") |>
+  mutate(
+    Effect = recode(
+      Effect,
+      "selection" = "Selection",
+      "sex" = "Sex",
+      "selection:sex" = "Selection \u00d7 Sex"
+    )
+  )
+
+csize_table <- csize_anova |>
+  gt() |>
+  fmt_number(
+    columns = c(`Sum Sq`, `Mean Sq`),
+    decimals = 2
+  ) |>
+  fmt_number(columns = NumDF, decimals = 0) |>
+  fmt_number(columns = DenDF, decimals = 1) |>
+  fmt_number(columns = `F value`, decimals = 2) |>
+  fmt_number(columns = `Pr(>F)`, decimals = 3) |>
+  cols_label(
+    Effect = "Effect",
+    NumDF = "df_n",
+    DenDF = "df_d",
+    `Sum Sq` = "SS",
+    `Mean Sq` = "MS",
+    `F value` = "F",
+    `Pr(>F)` = "p"
+  ) |>
+  tab_header(
+    title = "Centroid Size ANOVA",
+    subtitle = md(
+      "*Centroid Size* ~ Selection \u00d7 Sex + (1 | Replicate)"
+    )
+  ) |>
+  tab_options(column_labels.font.weight = "bold")
+csize_table
+csize_table |> gtsave(filename = "Table_CentroidSize_ANOVA.docx")
+```
+
+
+### Create RRPP data frame
+
+```{r}
+#| label: RRPP-data-frame
+WS_geom <- rrpp.data.frame(
+  coords = two.d.array(g_R$coords),
+  Csize = g_R$Csize,
+  replicate = WS_data_R$replicate,
+  selection = WS_data_R$selection,
+  inds = WS_data_R$inds,
+  sex = WS_data_R$sex
+)
+```
+
+
+### Allometry-corrected MANOVA
+
+```{r}
+#| label: manova-allometry
+#| cache: false
+suppressWarnings(
+  mano_allo <- lm.rrpp(
+    coords ~ Csize + selection * sex + selection:replicate,
+    data = WS_geom,
+    SS.type = "III",
+    print.progress = FALSE,
+    iter = 9999,
+    Parallel = FALSE
+  )
+)
+summary(mano_allo)
+anova(mano_allo)
+```
+
+Allometry-corrected MANOVA summary table
+
+```{r}
+#| label: manova-allometry-table
+#| echo: false
+manova_allo_table <- anova(mano_allo)$table |>
+  as.data.frame() |>
+  rownames_to_column("Effect") |>
+  filter(Effect != "Total") |>
+  mutate(
+    Effect = recode(
+      Effect,
+      "Csize" = "Centroid Size",
+      "selection" = "Selection",
+      "sex" = "Sex",
+      "selection:sex" = "Selection x Sex",
+      "selection:replicate" = "Selection x Replicate",
+      "Residuals" = "Residuals"
+    )
+  ) |>
+  gt() |>
+  fmt_number(columns = c(SS, MS), decimals = 5) |>
+  fmt_number(columns = Rsq, decimals = 3) |>
+  fmt_number(columns = F, decimals = 2) |>
+  fmt_number(columns = Z, decimals = 2) |>
+  fmt_number(columns = `Pr(>F)`, decimals = 4) |>
+  cols_label(`Pr(>F)` = "p") |>
+  tab_header(
+    title = "MANOVA: Wing shape (allometry-corrected)",
+    subtitle = md(
+      "Coordinates ~ Centroid Size + Selection \u00d7 Sex + Selection:Replicate
+      (SS type III, RRPP, 9999 iterations)"
+    )
+  ) |>
+  tab_options(column_labels.font.weight = "bold")
+
+manova_allo_table
+manova_allo_table |>
+  gtsave(filename = "Table_Shape_MANOVA_SizeCorrected.docx")
+```
+
+
+#### Allometry visualization
+
+```{r}
+#| label: allometry-plots
+#| echo: false
+
+# Fit with procD.lm for plotAllometry compatibility
+suppressWarnings(
+  fit_allo <- procD.lm(
+    coords ~ Csize + selection * sex + selection:replicate,
+    data = WS_geom,
+    print.progress = FALSE
+  )
+)
+
+# Extract RegScore values (suppress base R side-effect plot)
+pdf(NULL)
+allo_rs <- plotAllometry(
+  fit_allo,
+  size = WS_geom$Csize,
+  logsz = TRUE,
+  method = "RegScore"
+)
+invisible(dev.off())
+
+WS_data_R <- WS_data_R |>
+  mutate(
+    RegScore = as.numeric(allo_rs$RegScore),
+    log_Csize = log(Csize)
+  )
+
+# RegScore vs log(Centroid Size), split by sex x selection
+regscore_plot <- ggplot(
+  WS_data_R,
+  aes(x = log_Csize, y = RegScore)
+) +
+  geom_point(
+    aes(color = selection),
+    size = 3,
+    alpha = 0.75
+  ) +
+  geom_smooth(
+    method = "lm",
+    formula = "y ~ x",
+    linewidth = 1,
+    se = FALSE,
+    color = "black"
+  ) +
+  facet_grid(sex ~ selection) +
+  scale_color_manual(
+    name = "Selection",
+    values = c("CON" = "steelblue", "FP" = "firebrick")
+  ) +
+  labs(
+    x = "log(Centroid Size)",
+    y = "Regression Score (Shape)",
+    title = "Allometric trajectory",
+    subtitle = "RegScore (Drake & Klingenberg 2008)"
+  )
+regscore_plot
+
+# Size-corrected PCA: residuals from shape ~ Csize
+fit_size_only <- procD.lm(
+  coords ~ Csize,
+  data = WS_geom,
+  print.progress = FALSE
+)
+resid_coords <- residuals(fit_size_only)
+pca_resid <- prcomp(resid_coords)
+
+WS_data_R <- WS_data_R |>
+  mutate(
+    rPC1 = pca_resid$x[, 1],
+    rPC2 = pca_resid$x[, 2]
+  )
+
+resid_pca_plot <- ggplot(
+  WS_data_R,
+  aes(x = rPC1, y = rPC2, color = selection, shape = sex)
+) +
+  geom_point(size = 3, alpha = 0.75) +
+  scale_color_manual(
+    name = "Selection",
+    values = c("CON" = "steelblue", "FP" = "firebrick")
+  ) +
+  scale_shape_manual(values = c("F" = 16, "M" = 1)) +
+  labs(
+    x = glue::glue(
+      "rPC1 ({round(100 * summary(pca_resid)$importance[2, 1], 1)}%)"
+    ),
+    y = glue::glue(
+      "rPC2 ({round(100 * summary(pca_resid)$importance[2, 2], 1)}%)"
+    ),
+    title = "Size-corrected shape PCA",
+    subtitle = "PCA on residuals from shape ~ Csize"
+  )
+resid_pca_plot
+```
+
+### RegScore shape extremes
+
+- Min = Green
+- Max = Orange
+
+```{r}
+#| label: regscore-wireframe
+#| echo: false
+regscore_wireframe_plot <- suppressMessages(
+  PC_wireframe(
+    g = g_R,
+    wireframe_pts = wireframe_pts,
+    scores = WS_data_R$RegScore,
+    axis_name = "RegScore",
+    mirror_y = TRUE,
+    nudge_override = list(
+      "2" = c(-0.035, 0.000),
+      "3" = c(-0.035, 0.000),
+      "5" = c(-0.025, 0.025),
+      "6" = c(0.02, 0.000),
+      "7" = c(0.025, -0.025),
+      "8" = c(0.025, 0.025),
+      "9" = c(0.010, -0.025),
+      "10" = c(-0.01, 0.025)
+    )
+  )
+)
+regscore_wireframe_plot
+```
+
+### PCA
+
+- Min = Green
+- Max = Orange
+
+```{r}
+#| label: pc-wireframe
+#| echo: false
+wireframe_plot <- suppressMessages(
+  PC_wireframe(
+    PCA_R,
+    g_R,
+    wireframe_pts,
+    mirror_y = TRUE,
+    nudge_override = list(
+      "2" = c(-0.035, 0.000),
+      "3" = c(-0.035, 0.000),
+      "5" = c(-0.025, 0.025),
+      "6" = c(0.02, 0.000),
+      "7" = c(0.025, -0.025),
+      "8" = c(0.025, 0.025),
+      "9" = c(0.010, -0.025),
+      "10" = c(-0.01, 0.025)
+    )
+  )
+)
+wireframe_plot
+```
+
+```{r}
+#| label: pca-plots
+#| echo: false
+pc1_csize <- ggplot(
+  WS_data_R,
+  aes(x = Csize, y = PC1, color = selection, shape = sex)
+) +
+  geom_point(size = 3, alpha = 0.75) +
+  scale_color_manual(
+    name = "Selection",
+    values = c("CON" = "steelblue", "FP" = "firebrick")
+  ) +
+  scale_shape_manual(values = c("F" = 16, "M" = 1)) +
+  labs(
+    color = "Selection",
+    shape = "Sex",
+    x = "Centroid Size",
+    y = glue::glue("PC1 ({pct_var_R[1]}%)")
+  )
+
+pc1_pc2 <- ggplot(
+  WS_data_R,
+  aes(x = PC1, y = PC2, color = selection, shape = sex)
+) +
+  geom_point(size = 3, alpha = 0.75) +
+  scale_color_manual(
+    name = "Selection",
+    values = c("CON" = "steelblue", "FP" = "firebrick")
+  ) +
+  scale_shape_manual(values = c("F" = 16, "M" = 1)) +
+  labs(
+    color = "Selection",
+    shape = "Sex",
+    x = glue::glue("PC1 ({pct_var_R[1]}%)"),
+    y = glue::glue("PC2 ({pct_var_R[2]}%)")
+  )
+
+pc2_pc3 <- ggplot(
+  WS_data_R,
+  aes(x = PC2, y = PC3, color = selection, shape = sex)
+) +
+  geom_point(size = 3, alpha = 0.75) +
+  scale_color_manual(
+    name = "Selection",
+    values = c("CON" = "steelblue", "FP" = "firebrick")
+  ) +
+  scale_shape_manual(values = c("F" = 16, "M" = 1)) +
+  labs(
+    color = "Selection",
+    shape = "Sex",
+    x = glue::glue("PC2 ({pct_var_R[2]}%)"),
+    y = glue::glue("PC3 ({pct_var_R[3]}%)")
+  )
+
+pc1_csize
+pc1_pc2
+pc2_pc3
+```
+
+
+#### PC1 analysis
+
+```{r}
+#| label: pc1-analysis
+fm_pc1 <- lmer(
+  PC1 ~ selection * sex + Csize + (1 | replicate),
+  data = WS_data_R
+)
+
+pc1_summary <- summary(fm_pc1)$coefficients |>
+  as.data.frame() |>
+  rownames_to_column("Term") |>
+  mutate(
+    Term = recode(
+      Term,
+      "(Intercept)" = "Intercept",
+      "selectionFP" = "Selection (FP)",
+      "sexM" = "Sex (M)",
+      "Csize" = "Centroid Size",
+      "selectionFP:sexM" = "Selection \u00d7 Sex"
+    )
+  ) |>
+  gt() |>
+  fmt_number(columns = c(Estimate, `Std. Error`), decimals = 4) |>
+  fmt_number(columns = df, decimals = 1) |>
+  fmt_number(columns = `t value`, decimals = 2) |>
+  fmt_number(columns = `Pr(>|t|)`, decimals = 4) |>
+  cols_label(
+    `Std. Error` = "SE",
+    `t value` = "t",
+    `Pr(>|t|)` = "P-value"
+  ) |>
+  tab_header(
+    title = "PC1 ~ Selection \u00d7 Sex + Centroid Size",
+    subtitle = "Random effect: (1 | Replicate)"
+  ) |>
+  tab_options(column_labels.font.weight = "bold")
+pc1_summary
+pc1_summary |> gtsave(filename = "Table_PC1_Summary.docx")
+```
+
+
+### Filter to individuals with both wings
+
+```{r}
+#| label: filter-paired
+paired_inds <- WS_data_all |>
+  count(inds, sex) |>
+  filter(n == 2) |>
+  pull(inds)
+
+paired_idx <- WS_data_all$inds %in% paired_inds
+
+WS_coords <- WS_coords_all[,, paired_idx]
+WS_data <- WS_data_all[paired_idx, ]
+
+WS_data |> count(sex, selection, side)
+```
+
+### Spot check a few individuals
+
+```{r}
+#| label: spot-check
+#| echo: false
+set.seed(23497934)
+spot_ids <- sample(paired_inds, 9)
+
+# Helper to pivot wide landmark cols to long
+pivot_landmarks <- function(df) {
+  df |>
+    pivot_longer(
+      cols = x1:y12,
+      names_to = c(".value", "pt"),
+      names_pattern = "([xy])(\\d+)"
+    ) |>
+    mutate(pt = as.integer(pt))
+}
+
+# Subset raw data
+spot_raw <- WS |>
+  filter(inds %in% spot_ids) |>
+  pivot_landmarks()
+
+# Make wireframe segments
+spot_raw_segs <- wireframe_pts |>
+  left_join(
+    spot_raw |> select(inds, side, pt, x, y),
+    by = join_by(pt1 == pt),
+    relationship = "many-to-many"
+  ) |>
+  left_join(
+    spot_raw |> select(inds, side, pt, x, y),
+    by = join_by(pt2 == pt, inds, side),
+    suffix = c("", "end")
+  )
+
+ggplot(spot_raw, aes(x, y, color = side)) +
+  geom_segment(
+    data = spot_raw_segs,
+    aes(
+      x = x,
+      xend = xend,
+      y = y,
+      yend = yend,
+      color = side
+    ),
+    linewidth = 0.4
+  ) +
+  geom_point(size = 2) +
+  geom_text(
+    aes(label = pt),
+    nudge_y = 0.005,
+    size = 3,
+    show.legend = FALSE
+  ) +
+  facet_wrap(~inds) +
+  coord_equal() +
+  scale_color_manual(
+    values = c(Left = "steelblue", Right = "firebrick")
+  ) +
+  labs(
+    title = "Raw coordinates (no reflection)",
+    color = "Side"
+  )
+```
+
+## Directional and fluctuating asymmetry
+
+```{r}
+#| label: bilat-symmetry
+#| cache: false
+# Run bilat.symmetry for each sex x selection group
+group_levels <- c("F-CON", "F-FP", "M-CON", "M-FP")
+
+bs_groups <- map(set_names(group_levels), \(grp) {
+  parts <- str_split_1(grp, "-")
+  idx <- WS_data$sex == parts[1] &
+    WS_data$selection == parts[2]
+  gdf <- geomorph.data.frame(
+    coords = WS_coords[,, idx],
+    ind = WS_data$inds[idx],
+    side = WS_data$side[idx]
+  )
+  bilat.symmetry(
+    A = coords,
+    ind = ind,
+    side = side,
+    object.sym = FALSE,
+    data = gdf,
+    RRPP = TRUE,
+    iter = 9999,
+    SS.type = "III",
+    print.progress = FALSE
+  )
+})
+```
+
+#### Female-Control
+
+```{r}
+#| label: bilat-symmetry-FC
+#| echo: false
+summary(bs_groups[["F-CON"]])
+plot(bs_groups[["F-CON"]], warpgrids = FALSE)
+```
+
+#### Female-Flight Performance
+
+```{r}
+#| label: bilat-symmetry-FFP
+#| echo: false
+summary(bs_groups[["F-FP"]])
+plot(bs_groups[["F-FP"]], warpgrids = FALSE)
+```
+
+#### Male-Control
+
+```{r}
+#| label: bilat-symmetry-MC
+#| echo: false
+summary(bs_groups[["M-CON"]])
+plot(bs_groups[["M-CON"]], warpgrids = FALSE)
+```
+
+#### Male-Flight Performance
+
+```{r}
+#| label: bilat-symmetry-MFP
+#| echo: false
+summary(bs_groups[["M-FP"]])
+plot(bs_groups[["M-FP"]], warpgrids = FALSE)
+```
+
+### Bilateral symmetry ANOVA summary
+
+```{r}
+#| label: bilat-symmetry-table
+#| echo: false
+group_labels <- c(
+  "F-CON" = "Female-Control",
+  "F-FP" = "Female-Flight Performance",
+  "M-CON" = "Male-Control",
+  "M-FP" = "Male-Flight Performance"
+)
+
+bs_summary <- imap_dfr(bs_groups, \(bs, grp) {
+  bind_rows(
+    bs$size.anova |>
+      as.data.frame() |>
+      rownames_to_column("Effect") |>
+      mutate(Domain = "Centroid size", Group = grp),
+    bs$shape.anova |>
+      as.data.frame() |>
+      rownames_to_column("Effect") |>
+      mutate(Domain = "Shape", Group = grp)
+  )
+}) |>
+  as_tibble() |>
+  filter(Effect %in% c("ind", "side", "ind:side")) |>
+  mutate(
+    Component = case_when(
+      Effect == "ind" ~ "Individual Variation",
+      Effect == "side" ~ "DA",
+      Effect == "ind:side" ~ "FA"
+    ),
+    Group = recode(Group, !!!group_labels)
+  ) |>
+  select(
+    Group,
+    Domain,
+    Component,
+    Df,
+    SS,
+    MS,
+    Rsq,
+    F,
+    Z,
+    `Pr(>F)`
+  )
+
+make_bs_table <- function(data, domain) {
+  data |>
+    filter(Domain == domain) |>
+    select(-Domain) |>
+    gt(groupname_col = "Group") |>
+    fmt_number(columns = c(SS, MS), decimals = 7) |>
+    fmt_number(columns = c(Rsq), decimals = 3) |>
+    fmt_number(columns = c(F), decimals = 2) |>
+    fmt_number(columns = Z, decimals = 2) |>
+    fmt_number(columns = `Pr(>F)`, decimals = 3) |>
+    sub_missing(missing_text = "") |>
+    cols_label(
+      Component = "Effect",
+      `Pr(>F)` = "p"
+    ) |>
+    tab_header(
+      title = glue::glue(
+        "Bilateral symmetry: {domain}"
+      ),
+      subtitle = "DA = Side; FA = Individual:Side"
+    )
+}
+
+size_table <- make_bs_table(bs_summary, "Centroid size")
+shape_table <- make_bs_table(bs_summary, "Shape")
+
+size_table
+shape_table
+
+size_table |> gtsave(filename = "Table_BS_CentroidSize_Summary.docx")
+shape_table |> gtsave(filename = "Table_BS_ Shape_Summary.docx")
+```
+
+## GPA
+
+```{r}
+#| label: gpa
+g <- gpagen(WS_coords, print.progress = FALSE)
+PCA <- gm.prcomp(A = g$coords)
+
+# Add centroid size to WS_data
+WS_data <- WS_data |>
+  mutate(
+    Csize = g$Csize
+  )
+```
+
+
+### Centroid size asymmetry
+
+```{r}
+#| label: fa-centroid-size
+
+# Paired L-R differences
+Csize_paired <- WS_data |>
+  select(inds, sex, replicate, selection, side, Csize) |>
+  pivot_wider(
+    names_from = side,
+    values_from = Csize,
+    names_prefix = "Csize_"
+  ) |>
+  drop_na() |>
+  mutate(
+    LR_diff = Csize_Left - Csize_Right,
+    LR_abs = abs(LR_diff)
+  )
+
+Csize_paired |>
+  select(starts_with("Csize")) |>
+  pivot_longer(cols = everything()) |>
+  ggplot(aes(log(value))) +
+  geom_histogram(bins = 30)
+
+# DA: signed L-R difference by selection and sex
+fm_da_csize <- lmer(
+  LR_diff ~ selection * sex + (1 | replicate),
+  data = Csize_paired
+)
+summary(fm_da_csize)
+
+# Plot signed differences by selection and sex
+ggplot(
+  Csize_paired,
+  aes(x = selection, y = LR_diff, color = selection)
+) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_jitter(width = 0.2, size = 3, alpha = 0.75) +
+  facet_wrap(~sex) +
+  scale_color_aaas(guide = NULL) +
+  labs(y = "Centroid Size (Left - Right)")
+
+# FA comparison: does unsigned asymmetry differ
+# by selection or sex?
+fm_fa_csize <- lmer(
+  LR_abs ~ selection * sex + (1 | replicate),
+  data = Csize_paired
+)
+summary(fm_fa_csize)
+```
+
+
+### Flag size asymmetry extreme cases
+
+```{r}
+#| label: flag-csize-outliers
+
+# Threshold: > 10% of median centroid size
+csize_outlier_cutoff <- 0.1 *
+  median(
+    c(Csize_paired$Csize_Left, Csize_paired$Csize_Right)
+  )
+
+# Image ID for each wing, one column per side
+imgid_paired <- WS_data |>
+  select(inds, side, image) |>
+  pivot_wider(
+    names_from = side,
+    values_from = image,
+    names_prefix = "image_"
+  )
+
+# Individuals whose left-right centroid size difference is too
+# large to be biological (suspected scale error on one wing)
+csize_outliers <- Csize_paired |>
+  left_join(imgid_paired, by = join_by(inds)) |>
+  filter(LR_abs > csize_outlier_cutoff) |>
+  arrange(desc(LR_abs)) |>
+  mutate(
+    photo_Left = glue::glue(
+      "{str_replace(image_Left, '105_', 'IMG_')}.JPG"
+    ),
+    photo_Right = glue::glue(
+      "{str_replace(image_Right, '105_', 'IMG_')}.JPG"
+    )
+  ) |>
+  select(
+    inds,
+    sex,
+    selection,
+    replicate,
+    image_Left,
+    image_Right,
+    photo_Left,
+    photo_Right,
+    Csize_Left,
+    Csize_Right,
+    LR_diff
+  )
+```
+
+```{r}
+#| label: flag-csize-outliers-table
+#| echo: false
+csize_outliers_table <- csize_outliers |>
+  gt(groupname_col = "selection") |>
+  fmt_number(
+    columns = c(Csize_Left, Csize_Right, LR_diff),
+    decimals = 4
+  ) |>
+  cols_label(
+    inds = "Individual",
+    sex = "Sex",
+    replicate = "Batch",
+    image_Left = "Left ID",
+    image_Right = "Right ID",
+    photo_Left = "Left photo",
+    photo_Right = "Right photo",
+    Csize_Left = "CS Left",
+    Csize_Right = "CS Right",
+    LR_diff = "Left - Right"
+  ) |>
+  tab_header(
+    title = "Flagged centroid-size asymmetry outliers",
+    subtitle = glue::glue(
+      "abs(CS Left - CS Right) > 10% of median CS",
+      " ({round(csize_outlier_cutoff, 4)})"
+    )
+  ) |>
+  tab_options(column_labels.font.weight = "bold")
+csize_outliers_table
+
+csize_outliers_table |>
+  gtsave(filename = "Table_Csize_Outliers.docx")
+```
+
+
+### Shape asymmetry
+
+```{r}
+#| label: da-shape
+
+# Unsigned asymmetry index per specimen
+# (Klingenberg & McIntyre 1998)
+WS_fa <- imap_dfr(bs_groups, \(bs, grp) {
+  parts <- str_split_1(grp, "-")
+  WS_data |>
+    filter(
+      side == "Right",
+      sex == parts[1],
+      selection == parts[2]
+    ) |>
+    mutate(unsigned_AI = bs$unsigned.AI)
+})
+
+# Plot unsigned asymmetry index by selection and sex
+ggplot(
+  WS_fa,
+  aes(x = selection, y = unsigned_AI, color = selection)
+) +
+  geom_jitter(width = 0.2, size = 3, alpha = 0.75) +
+  facet_wrap(~sex) +
+  scale_color_aaas(guide = NULL) +
+  labs(
+    y = "Unsigned Asymmetry Index\n(Procrustes Distance L vs R)"
+  )
+
+# Test whether shape FA differs by selection or sex
+fm_fa_shape <- lmer(
+  unsigned_AI ~ selection * sex + (1 | replicate),
+  data = WS_fa
+)
+summary(fm_fa_shape)
+```
+
+
+### Selection and sex effects on asymmetry
+
+```{r}
+#| label: asymmetry-summary-table
+#| echo: false
+extract_lmer_fixed <- function(model, label) {
+  coefs <- summary(model)$coefficients |>
+    as.data.frame() |>
+    rownames_to_column("Term")
+  names(coefs) <- c(
+    "Term",
+    "Estimate",
+    "SE",
+    "df",
+    "t",
+    "p"
+  )
+  coefs |>
+    filter(Term != "(Intercept)") |>
+    mutate(
+      Model = label,
+      Term = recode(
+        Term,
+        "selectionFP" = "Selection (FP)",
+        "sexM" = "Sex (M)",
+        "selectionFP:sexM" = "Selection x Sex"
+      )
+    )
+}
+
+asymmetry_table <- bind_rows(
+  extract_lmer_fixed(fm_da_csize, "DA: Centroid size"),
+  extract_lmer_fixed(fm_fa_csize, "FA: Centroid size"),
+  extract_lmer_fixed(fm_fa_shape, "FA: Shape")
+) |>
+  gt(groupname_col = "Model") |>
+  fmt_number(columns = c(Estimate, SE), decimals = 4) |>
+  fmt_number(columns = df, decimals = 1) |>
+  fmt_number(columns = t, decimals = 2) |>
+  fmt_number(columns = p, decimals = 3) |>
+  tab_header(
+    title = "Asymmetry fixed effects summary",
+    subtitle = "Random effect: replicate (1 | replicate)"
+  ) |>
+  tab_options(column_labels.font.weight = "bold")
+asymmetry_table
+
+asymmetry_table |> gtsave(filename = "Table_Asymmetry_Summary.docx")
+```
+
+
+```{r}
+#| label: collect-pvalues
+#| echo: false
+
+### Collect all P-values
+
+lmer_anova_pvals <- function(model, test_label) {
+  anova(model) |>
+    as.data.frame() |>
+    rownames_to_column("effect") |>
+    transmute(
+      test = test_label,
+      effect,
+      p_value = `Pr(>F)`
+    )
+}
+
+rrpp_anova_pvals <- function(model, test_label) {
+  anova(model)$table |>
+    as.data.frame() |>
+    rownames_to_column("effect") |>
+    filter(effect != "Total") |>
+    transmute(
+      test = test_label,
+      effect,
+      p_value = `Pr(>F)`
+    )
+}
+
+lmer_coef_pvals <- function(model, test_label) {
+  summary(model)$coefficients |>
+    as.data.frame() |>
+    rownames_to_column("effect") |>
+    transmute(
+      test = test_label,
+      effect,
+      p_value = `Pr(>|t|)`
+    )
+}
+
+bs_pvals <- function(bs_groups) {
+  imap_dfr(bs_groups, \(bs, grp) {
+    bind_rows(
+      bs$size.anova |>
+        as.data.frame() |>
+        rownames_to_column("effect") |>
+        transmute(
+          test = glue::glue(
+            "Bilateral symmetry (size): {grp}"
+          ),
+          effect,
+          p_value = `Pr(>F)`
+        ),
+      bs$shape.anova |>
+        as.data.frame() |>
+        rownames_to_column("effect") |>
+        transmute(
+          test = glue::glue(
+            "Bilateral symmetry (shape): {grp}"
+          ),
+          effect,
+          p_value = `Pr(>F)`
+        )
+    )
+  })
+}
+
+all_pvalues <- bind_rows(
+  tibble(
+    test = "Sample balance chi-squared",
+    effect = "balance",
+    p_value = chisq_balance$p.value
+  ),
+  lmer_anova_pvals(fm, "Centroid size ANOVA"),
+  rrpp_anova_pvals(
+    mano_allo,
+    "MANOVA: wing shape (allometry)"
+  ),
+  lmer_coef_pvals(fm_pc1, "PC1 coefficients"),
+  bs_pvals(bs_groups),
+  lmer_coef_pvals(fm_da_csize, "DA: centroid size"),
+  lmer_coef_pvals(fm_fa_csize, "FA: centroid size"),
+  lmer_coef_pvals(fm_fa_shape, "FA: shape")
+)
+
+write_csv(all_pvalues, "wing_pvalues.csv")
+```
+
+
+## Figures
+
+```{r}
+c_size_resized <- c_size +
+  theme_cowplot(font_size = 9) +
+  theme(axis.title.x = element_blank())
+
+nudges <- list(
+  "2" = c(-0.04, 0.000),
+  "3" = c(-0.04, 0.000),
+  "5" = c(-0.025, 0.025),
+  "6" = c(0.03, 0.000),
+  "7" = c(0.025, -0.025),
+  "8" = c(0.025, 0.025),
+  "9" = c(0.010, -0.025),
+  "10" = c(-0.01, 0.025)
+)
+
+wireframe_plot <- suppressMessages(
+  PC_wireframe(
+    PCA_R,
+    g_R,
+    wireframe_pts,
+    label_size = 2,
+    mirror_y = TRUE,
+    nudge_override = nudges
+  )
+)
+
+pc1_csize <- ggplot(
+  WS_data_R,
+  aes(x = Csize, y = PC1, color = selection, shape = sex)
+) +
+  geom_point(size = 1.5, alpha = 0.75) +
+  theme_cowplot(font_size = 9) +
+  scale_color_manual(
+    name = "Selection",
+    values = c("CON" = "steelblue", "FP" = "firebrick")
+  ) +
+  scale_shape_manual(values = c("F" = 16, "M" = 1)) +
+  labs(
+    color = "Selection",
+    shape = "Sex",
+    x = "Centroid Size",
+    y = glue::glue("PC1 ({pct_var_R[1]}%)")
+  )
+
+P <- plot_grid(
+  plotlist = list(c_size_resized, pc1_csize, wireframe_plot),
+  nrow = 3,
+  labels = "auto",
+  label_size = 9
+)
+save_plot(
+  filename = "Fig_5_Wing_GM.png",
+  plot = P,
+  base_height = 8,
+  base_width = 3.5,
+  dpi = 300,
+  bg = "white"
+)
+```
+
+## Packages used
+
+```{r}
+sessioninfo::session_info()
+```

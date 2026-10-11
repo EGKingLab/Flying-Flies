@@ -83,6 +83,8 @@ An RDS file containing the list of all tables is saved in:
 
 ### Generating plots for wing morphometrics (figure 5)
 
+Render the quarto file `Wing_Landmarking/Landmark_analysis.qmd`, which carries out the analysis and saves figure 5.
+
 ### Generating plots for life-history data: dry mass, survivorship and fecundity (figure 6)
 
 #### Dry mass
