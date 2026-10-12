@@ -111,33 +111,16 @@ thetapi_box <- ggplot(data = FF_thetapi, aes(x = Selection, y = theta_pi, color 
   geom_boxplot(outliers = FALSE, alpha = 0.8) + 
   geom_point(aes(shape = PopReplicate), alpha = 0.1,
              position = position_dodge(width = 0.5)) +
+  stat_summary(color = 'black', 
+    fun = mean, size = 5, shape = '-') +
+  scale_color_manual(name = "Selection",
+ values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
+ scale_shape_manual(name = "Replicate",
+ values = c("1" = 15, "2" = 16, "3" = 17, "4" = 18)) +
   labs(y = bquote("Nucleotide diversity (" ~ theta[pi] ~ ")"), shape = "Replicate") + theme_cowplot() 
 
 print(thetapi_box)
 
-# Scan of nucleotide diversity
-thetapi_scan <- ggplot(data = FF_thetapi, aes(
-  x = start, y = theta_pi, color = Selection)) +
-  facet_grid(chrom ~ .) +
-  geom_point(alpha = 0.05)
-  
-print(thetapi_scan)
-
-# 
-# # Scanplot of FP/CON nucleotide diversity ratio
-# ratio_scan <- ggplot(data = thetapiratio, aes(x = start, y = RatioFPCON)) +
-#   facet_grid(.~chrom, scales = 'free_x', space = 'free_x') +
-#   geom_point(aes(color = OutlierRatio), alpha = 0.5) +
-#   scale_color_manual(
-#     values = c("FALSE" = 'grey30', "TRUE" = 'red'),
-#     labels = c("FALSE" = NA, "TRUE" = "1% Outlier")) +
-#   labs(y = bquote("log2(" ~ theta[pi] ~ " Ratio (FP/CON))"),
-#        x = "Window start") + theme_cowplot() +
-#   theme(axis.text.x = element_blank(),
-#         legend.position = 'none')
-#   
-# print(ratio_scan)
-# 
 
 ```
 
@@ -345,16 +328,6 @@ FstHudson_htmp_mean <- ggplot(data = FF_FstHudson_mean,
   geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
   
   scale_fill_viridis_c(option = 'plasma', na.value = "white") +
-  # 
-  # scale_color_manual(
-  #   values = c(
-  #     "Self" = "transparent",
-  #     "Unmeasured" = "transparent",
-  #     "Within" = "deepskyblue",
-  #     "Between" = "red"
-  #   )
-  # ) +
-  
   labs(
     x = "Focal Population",
     y = "Compared Population",
@@ -394,7 +367,8 @@ FF_FstHudson <- FF_FstHudson %>%
 FstHudson_scanplots <- FF_FstHudson %>%
   ggplot(aes(x = start, y = fst, color = Comparison, size = fst)) +
   scale_size_area(max_size = 2) +
-  facet_grid(Comparison ~ chrom) +
+  facet_grid(Comparison ~ chrom, scales = 'free_x') +
+  scale_color_brewer(palette = 'Dark2') +
   geom_point(alpha = 0.5) +
   labs(
     x = "Window (100kb) Start Position",
@@ -666,15 +640,20 @@ print(mFst_lm_plt)
 ### Figure for Publication
 
 ```{r}
-fig_div_fst <- ratio_thetapi_plt/mFst_lm_plt
+fig_div_fst <- ratio_thetapi_plt/mFst_lm_plt + plot_annotation(tag_levels = 'A')
 
 print(fig_div_fst)
 ```
 
-#### Save figure
+#### Save figures
 
 ```{r}
-ggsave(fig_div_fst, filename = "../../Plots/div_fst_fig.jpeg", dpi = 400, width = 8, height = 10)
+# boxplot of gene diversity
+ggsave(thetapi_box, filename = "../../Plots/sfig_genediv.jpeg",
+       dpi = 400, width = 8.5, height = 5.5)
+
+# figure in publication (combining gene div. and fst)
+ggsave(fig_div_fst, filename = "../../Plots/div_fst_fig.jpeg", dpi = 400, width = 17, height = 11)
 ```
 
 ==============================================
@@ -782,7 +761,7 @@ FstNei_htmp_mean <- ggplot(data = FF_FstNei_mean,
     aes(x = Focal_pop, y = Comp_pop)) +
   geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
   
-  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
+  scale_fill_viridis_c(option = 'plasma', na.value = "white") +
   # 
   # scale_color_manual(
   #   values = c(
@@ -804,7 +783,7 @@ FstNei_htmp_median <- ggplot(data = FF_FstNei_median,
     aes(x = Focal_pop, y = Comp_pop)) +
   geom_tile(aes(fill = Value), color = 'white', linewidth = 1.2) +
   
-  scale_fill_gradient(low = 'pink', high = 'purple', na.value = "white") +
+  scale_fill_viridis_c(option = 'plasma', na.value = "white") +
   labs(
     x = "Focal Population",
     y = "Compared Population",
@@ -832,7 +811,8 @@ FF_FstNei <- FF_FstNei %>%
 FstNei_scanplots <- FF_FstNei %>%
   ggplot(aes(x = start, y = fst, color = Comparison, size = fst)) +
   scale_size_area(max_size = 2) +
-  facet_grid(Comparison ~ chrom) +
+  facet_grid(Comparison ~ chrom, scales = 'free_x') +
+  scale_color_brewer(palette = 'Dark2') +
   geom_point(alpha = 0.5) +
   labs(
     x = "Window (100kb) Start Position",
@@ -849,9 +829,15 @@ print(FstNei_scanplots)
 ### Assemble heat maps and save figure
 
 ```{r}
-Fst_heatmp_fig <- FstHudson_htmp_mean/FstNei_htmp_mean
+Fst_scanfigs <- FstHudson_scanplots/FstNei_scanplots + plot_annotation(tag_levels = 'A')
+
+Fst_heatmp_fig <- FstHudson_htmp_mean/FstNei_htmp_mean + 
+  plot_annotation(tag_levels = 'A')
 
 print(Fst_heatmp_fig)
 
-ggsave(Fst_heatmp_fig, filename = "../../Plots/Fst_heatmp_fig.jpeg", dpi = 400, width = 8, height = 10)
+ggsave(Fst_scanfigs, filename = "../../Plots/Fst_scanplots.jpeg",
+       dpi = 400, width = 8.5, height = 8.5)
+
+ggsave(Fst_heatmp_fig, filename = "../../Plots/Fst_heatmp_fig.jpeg", dpi = 400, width = 8.5, height = 8.5)
 ```
