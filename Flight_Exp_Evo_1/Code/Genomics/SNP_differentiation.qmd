@@ -41,15 +41,23 @@ Xaxis_CHROM <- SNPdiff_data %>%
   group_by(CHROM) %>% 
   summarise(center = (min(POS) + max(POS))/2)
 
+# linear model (used in manuscript)
 SNPdiff_data$lm_adjPval <- p.adjust(SNPdiff_data$lm_Pval, method = 'fdr')
+# model comparison (Selection as mean factor vs. mean only)
 SNPdiff_data$comp_adjPval <- p.adjust(SNPdiff_data$comp_Pval, method = 'fdr')
+# t-test with unequal variance assumption
 SNPdiff_data$tue_adjPval <- p.adjust(SNPdiff_data$tue_Pval, method = 'fdr')
+# t-test with equal variance assumption, equivalent to lm
 SNPdiff_data$te_adjPval <- p.adjust(SNPdiff_data$te_Pval, method = 'fdr')
+# quasibionial model, unweighted
 SNPdiff_data$qb_b_adjPval <- p.adjust(SNPdiff_data$qb_b_Pval, method = 'fdr')
+# quasibinomial model, weighted
 SNPdiff_data$qb_w_adjPval <- p.adjust(SNPdiff_data$qb_w_Pval, method = 'fdr')
 
 
-# 
+# The following code is commented because it is computationally intensive.
+# Uncomment the following code to see plots for different tests used.
+
 # # linear model: non-adjusted p-values
 # plot_lm_Pval <- ggplot(data = SNPdiff_data, aes(
 # x = POS, y = -log10(lm_Pval), size = -log10(lm_Pval))) +
@@ -168,7 +176,7 @@ SNPdiff_data$qb_w_adjPval <- p.adjust(SNPdiff_data$qb_w_Pval, method = 'fdr')
 
 ```
 
-### Plot for publication: LM adjusted p-value
+### Plot of LM adjusted p-values
 
 ```{r}
 # lm adjusted
@@ -367,214 +375,3 @@ ggsave(depth_frq_SNPfig,
        filename = "../../Plots/depth_freq_SNPfig.jpeg", 
        dpi = 400, width = 10, height = 10)
 ```
-
-====================================================
-
-#### OLD: For each locus, fit the following models:
-
-i\) A linear model with default settings (normal distribution)
-
-ii\) A generalized linear model with quasibinomial distribution
-
-```{r}
-
-FF_matrix_raw <- FF_genomes_filtered[1:1000, seq(5,12, by=1)]
-FF_depth <- FF_genomes_filtered[1:1000, seq(13,20, by=1)]
-
-FF_matrix <- as.matrix(FF_matrix_raw)
-FF_depth <- as.matrix(FF_depth)
-
-linear_output <- numeric(length = nrow(FF_matrix))
-
-ttest_output <- numeric(length = nrow(FF_matrix))
-
-quasibinom_output <- numeric(length = nrow(FF_matrix))
-
-perc_tracker <- round(nrow(FF_matrix) * 0.05)
-
-paste0("Progress: START")
-
-for(ii in 1:nrow(FF_matrix)){
-  FF_temp <- data.frame(
-    "Treatment" = rep(c("CON","FP"), each = 4), 
-    "Frequency" = FF_matrix[ii,],
-    "Depth" = FF_depth[ii,])
-  
-  # quasibinomial model
-  quasibinom_FFtemp <- glm(data = FF_temp,
-  Frequency ~ Treatment,
-  family = quasibinomial(link = "logit"),
-  weights = Depth)
-
-  quasibinom_output[ii] <- as.double(tidy(quasibinom_FFtemp)[2,5])
-
-  # Arcsine squareroot transform data before fitting linear models
-  FF_temp <- FF_temp %>%
-    mutate(Freq_asqrt = asin(sqrt(Frequency)))
-  # 
-  # linear model with anova
-  mod_FF_temp <- lm(data = FF_temp, 
-                    Freq_asqrt ~ Treatment)
-  mod_FF_temp <- anova(mod_FF_temp)
-  linear_output[ii] <- mod_FF_temp$`Pr(>F)`[1]
-  
-  # t test
-  ttest_FFtemp <- t.test(data = FF_temp, 
-                         Freq_asqrt ~ Treatment, var.equal = TRUE)
-  ttest_output[ii] <- ttest_FFtemp$p.value
-  
-  
-  
-  if (ii %% perc_tracker == 0){
-    current_per <- (ii/nrow(FF_matrix) * 100)
-    cat("Progress: ", current_per, "%\n")
-  }
-}
-
-FF_results <- FF_genomes_filtered[1:1000, c(1, 2)] %>% 
-             mutate(CHROM = fct_drop(CHROM))
-
-FF_results$lm_Pval <- linear_output
-FF_results$lm_adjPval <- p.adjust(linear_output, method = "fdr")
-FF_results$lm_postadj <- p.adjust(FF_results$lm_Pval, method = "fdr")
-
-FF_results$t_Pval <- p.adjust(ttest_output, method = "fdr")
-FF_results$t_adjPval <- p.adjust(ttest_output, method = "fdr")
-FF_results$t_postadj <- p.adjust(ttest_output, method = "fdr")
-
-FF_results$qb_Pval <- p.adjust(quasibinom_output, method = "fdr")
-FF_results$qb_adjPval <- p.adjust(quasibinom_output, method = "fdr")
-FF_results$qb_postadj <- p.adjust(quasibinom_output, method = "fdr")
-
-```
-
-#### Old Scanplot
-
-```{r}
-X_CHROM <- FF_results %>% group_by(CHROM) %>% summarise(center = (min(POS) + max(POS))/2)
-
-scanplot <- ggplot(data = FF_results, aes(
-x = POS, y = -log10(lm_adjPval), size = -log10(lm_adjPval))) +
-  facet_grid(.~ CHROM) +
-  geom_point(aes(color = CHROM), alpha = 0.5) +
-  scale_size_area(max_size = 3) +
-  scale_color_manual(
-  values = rep(c("steelblue3", "skyblue"), 
-               length(X_CHROM$CHROM))) +
-  ylim(c(0, 3)) +
-  ylab("-log10(FDR adjusted P Value)") +
-  xlab("Position") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
-  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
-    theme(axis.text.x = element_blank(), legend.position = 'none')
-
-print(scanplot)
-```
-
-### OLD: Manual t test calculation
-
-Manually calculate t-test via matrix calculations.
-
-```{r}
-SNP_ID <- paste0(FF_genomes_filtered$CHROM, "_", FF_genomes_filtered$POS)
-
-mat_CON <- as.matrix(FF_genomes_filtered[, c("freq_CON1", "freq_CON2", "freq_CON3", "freq_CON4")])
-rownames(mat_CON) <- SNP_ID
-
-mat_FP <- as.matrix(FF_genomes_filtered[, c("freq_FP1", "freq_FP2", "freq_FP3", "freq_FP4")])
-rownames(mat_FP) <- SNP_ID
-
-# Arcsine squareroot transformation
-mat_CON <- asin(sqrt(mat_CON))
-mat_FP <- asin(sqrt(mat_FP))
-
-mean_CON <- rowMeans(mat_CON)
-mean_FP <- rowMeans(mat_FP)
-
-n_CON <- ncol(mat_CON)
-n_FP <- ncol(mat_FP)
-
-var_CON <- (rowSums(mat_CON^2) - (n_CON * (mean_CON^2)))/(n_CON - 1)
-var_FP <- (rowSums(mat_FP^2) - (n_FP * (mean_FP^2)))/(n_FP - 1)
-
-sesq_CON <- var_CON/n_CON
-sesq_FP <- var_FP/n_FP
-se_total <- sqrt(sesq_CON + sesq_FP)
-
-t_stat <- (mean_CON - mean_FP)/se_total
-
-# Welch-Satterthwaite d.o.f. calculation
-dof_numer <- (sesq_CON + sesq_FP)^2
-dof_denom <- ((sesq_CON^2)/(n_CON-1)) + ((sesq_FP^2)/(n_FP-1))
-dof_welch <- dof_numer/dof_denom
-
-p_vals <- pt(abs(t_stat), dof_welch ,lower.tail=FALSE) * 2
-
-test_loop <- 1000
-random_indices <- sample(1:nrow(mat_CON), test_loop, replace = FALSE)
-t_match <- tibble(indices = random_indices, 
-                  manual_ttest = numeric(length = test_loop),
-                  R_ttest = numeric(length = test_loop),
-                  difference = numeric(length = test_loop))
-cc <-  0
-for(rr in random_indices){
-  cc <-  cc + 1
-  t_match$manual_ttest[cc] <- p_vals[rr]
-  
-  t_try <- t.test(mat_CON[rr, ], mat_FP[rr, ])
-  t_match$R_ttest[cc] <- t_try$p.value
-  
-  t_match$difference[cc] = t_match$manual_ttest[cc] - t_match$R_ttest[cc] 
-  
-  #stopifnot(p_vals[rr] == t_try$p.value)  
-}
-
-# plot -log10 of the difference between 1000 random t tests and manual t test.
-boxplot(-log10(abs(t_match$difference) + 0.1^20))
-
-na_indices <- which(!complete.cases(t_match$difference))
-
-boxplot(-log10(p_vals))
-
-adj_pvals <- p.adjust(p_vals, method = 'fdr')
-
-boxplot(-log10(adj_pvals))
-```
-
-#### Scanplot for manual t-test p-values
-
-```{r}
-FF_ttestres <- p_vals %>% as_tibble(rownames = "SNP_ID") %>% 
-  separate_wider_delim(
-    cols = SNP_ID,
-    delim = "_",
-    names = c("Chromosome", "Position")
-  ) %>% rename(P_vals = value) %>% mutate(Position = as.numeric(Position))
-
-
-# FDR correction on P values
-FF_ttestres$adj_pvals <- p.adjust(p_vals, method = "fdr")
-
-# Chromosomal IDs for scanplot
-Xaxis_CHROM <- FF_ttestres %>% group_by(Chromosome) %>% 
-  summarise(center = (min(Position) + max(Position))/2)
-
-ttest_scanplot <- ggplot(data = FF_ttestres, aes(
-x = Position, y = -log10(adj_pvals), size = -log10(adj_pvals))) +
-  facet_grid(.~ Chromosome) +
-  geom_point(aes(color = Chromosome), alpha = 0.5) +
-  scale_size_area(max_size = 3) +
-  scale_color_manual(
-  values = rep(c("steelblue3", "skyblue"), 
-               length(Xaxis_CHROM$Chromosome))) +
-  ylim(c(0, 3)) +
-  ylab("-log10(FDR adjusted P Value)") +
-  xlab("Position") +
-  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = 'red') +
-  geom_hline(yintercept = 2, linetype = 'dotted', color = 'red') +
-    theme(axis.text.x = element_blank(), legend.position = 'none')
-
-print(ttest_scanplot)
-```
-
-### 
