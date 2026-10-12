@@ -12,20 +12,60 @@ Srikant Venkitachalam (**SRI**)
 
 ### [Notes]{.underline}
 
+#### Notes on filtering based on read depth and allele frequencies
+
+Ferretti et al 2013 suggest removing all singleton reads.
+
+Read depth: Ferretti et al 2013 suggest that a read depth of 20-30 is a good minimum, and statistical power does not increase beyond a read depth of 40-50. Burke et al. used an upper cutoff of 150.
+
+As of 2026-05-15, read depth filters of min. 20× and max. 150× will be applied.
+
+Gamboa-Santarosa et al 2026 bioRxiv have filtered read depth between 50-500. For allele frequency, they have filtered a combined allele frequency of 1% on both ends.
+
+2026-05-20: Read depth filters of min. 20x and max. 500x. Allele frequency (averaged over all samples) of \<0.01 and \>0.99 are filtered.
+
+2026-06-02: After further discussions, it is determined that the filter policy will be:
+
+read depth: min. 20x, max. 500x (unchanged from previous implementation).
+
+allele frequency: ALL alleles at a site should be \>0.01 and \<0.99. Furthermore, all sites containing a singleton count will be removed.
+
+With this filter, 1,070,788 SNPs remained. Total SNPs after selecting relevant chromosomes and dropping NAs are 1,423,464. A total of 352,676 sites were filtered out, which is 24.78% of the unfiltered data.
+
+2026-06-08: the filtering out of a SNP for ANY allele being less than 0.01 or 0.99 was thought to be too conservative. Thus, average allele frequency at a site should be \>0.01 and \<0.99. With read depth as well, the filter will be changed to ensuring that the max. value of a SNP should not be less than 20 and the min. value of a SNP should not be more than 500. Singleton filtering removed, since one singleton at a site out of 8 populations is too conservative. The allele frequency filtering should account for improbably low reads. As an addition, the sites which are found significantly differentiated based on the linear model analysis will be checked post analysis for the allele frequency and read depth distributions.
+
+With this filter, 1,360,234 SNPs remained. Total SNPs after selecting relevant chromosomes and dropping NAs are 1,423,464. A total of 63,230 sites were filtered out, which is 4.44% of the unfiltered data.
+
+2026-06-29: Some statistically significant differences were associated with large differences in read depth, in particular those sites which had 2-3 populations with very low read depth. Thus, the read depth filter was set to \>=20 and \<=500. Average allele frequency for a site set at \>=0.01 and \<=0.99.
+
+With this filter, 1,350937 SNPs remained. Total SNPs after selecting relevant chromosomes and dropping NAs are 1,423,464. A total of 72527 sites were filtered out, which is approx. 5.1% of the unfiltered data.
+
+Moreover, additional filtering criteria are calculated but not implemented (as new columns of TRUE/FALSE values) set as:
+
+Liberal (lib): for a given site, at least one population should have read depth between 20 and 500. At least one population should have frequency between 0.01 and 0.99.
+
+Conservative (cons): for a given site, all populations should have read depth between 30 and 300. Average allele frequency for a given site should be between 0.02 and 0.98.
+
+2026-07-02: After extensive plots on frequency filtering (see "Plotting and analyzing consequences of average allele filtering" section below), there are many sites which are of potential consequence when filtering out average freq outside of 0.01 and 0.99. Multiple sites which turn up significant on linear model testing have populations with frequency at up to 0.04.
+
+Thus, it is decided that the filtering will be finalized at the following criteria:
+
+1.  Read depth between 20 and 500 (any site with any population outside these criteria are filtered)
+2.  Allele frequency: at least one population should have frequency \>=0.02 and \<=0.98.
+
+With this filter, 1,362292 SNPs remained. Total SNPs after selecting relevant chromosomes and dropping NAs are 1,423,464. A total of 61,172 sites were filtered out, which is approx. 4.3% of the unfiltered data.
+
 #### 2026_06_3 EGK:
 
-Completed haplotype inference. Used simulations to determine best window size and method: MLE method with 100,000bp windows. 
+Completed haplotype inference. Used simulations to determine best window size and method: MLE method with 100,000bp windows.
 
-Next steps:
-Fit model at haplotype level
-Try model on 8 freqs separately too?
+Next steps: Fit model at haplotype level Try model on 8 freqs separately too?
 
 Randomization is after that
 
 Will use the following for snp analysis and single haplotype analysis for speed: https://adv-r.hadley.nz/perf-improve.html
 
 Got both models running very fast. Now just need to deploy.
-
 
 #### 2025_06_17 EGK:
 
