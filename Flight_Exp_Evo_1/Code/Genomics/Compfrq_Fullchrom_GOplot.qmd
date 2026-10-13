@@ -3,7 +3,7 @@ title: "Compfrq_Fullchrom_GOplot"
 format: html
 ---
 
-# Haplotype Comparitive analyses
+# Haplotype Comparative analyses
 
 ### Frequencies and enrichment in chromosome arms
 
