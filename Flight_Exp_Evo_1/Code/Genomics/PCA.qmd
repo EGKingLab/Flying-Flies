@@ -15,7 +15,6 @@ Also sets the cowplot theme
 ```{r}
 library(tidyverse)
 library(cowplot)
-library(pcadapt)
 library(patchwork)
 
 theme_set(theme_cowplot())
@@ -85,32 +84,9 @@ pca_result <- pca_result %>% mutate(
     ) %>% 
   mutate_at(c("Selection", "PopReplicate"), factor)
 
-# K-means clustering on frequency data
-# looking for 2 distinct groups
-clustering_result <- kmeans(data_pca, centers = 2, nstart = 25)
-
-pca_result$Cluster <- as.factor(clustering_result$cluster)
-
-
 ```
 
 #### Make Biplot
-
-With K-means clustering (gives warning due to only 2 samples in second cluster)
-
-```{r}
-pca_biplot_kmeans <- ggplot(data = pca_result, 
-  aes(x = X, y = Y)) +
-  geom_point(aes(color = Selection, shape = PopReplicate), size = 3, alpha = 0.75) +
-  xlab(paste0("PC1 (", var_expl_percent[1], "%)")) +
-  ylab(paste0("PC2 (", var_expl_percent[2], "%)")) +
-  
-  stat_ellipse(aes(group = Cluster), level = 0.95, linetype = 2, color = "black")
-  
-print(pca_biplot_kmeans)
-```
-
-Without ellipse
 
 ```{r}
 pca_biplot_Sel <- ggplot(data = pca_result, 
@@ -124,8 +100,6 @@ pca_biplot_Sel <- ggplot(data = pca_result,
   scale_color_manual(name = "Selection",
     values = c("CON" = 'steelblue', "FP" = 'firebrick')) +
   labs(shape = "Replicate")
-  
-  # stat_ellipse(aes(group = Selection, color = Selection), level = 0.95, linetype = 2)
   
 print(pca_biplot_Sel)
 ```
@@ -160,16 +134,8 @@ PCA_fig <- pca_scree/pca_biplot_Sel+
 print(PCA_fig)
 ```
 
-Save test plots
+#### Save figure
 
 ```{r}
-#ggsave(pca_biplot_kmeans, filename = "../../Plots/testPCA_kmeans.jpeg", dpi = 400, width = 12, height = 6)
-
-# ggsave(pca_biplot_Sel, filename = "../../Plots/PCA_Biplot.jpeg", dpi = 400, width = 12, height = 6)
-# 
-# ggsave(pca_scree, filename = "../../Plots/PCA_Scree.jpeg", dpi = 400, width = 12, height = 6)
-
 ggsave(PCA_fig, filename = "../../Plots/PCA_fig.jpeg", dpi = 400, width = 6, height = 8)
 ```
-
-### 
