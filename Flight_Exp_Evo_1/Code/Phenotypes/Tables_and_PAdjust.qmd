@@ -277,6 +277,21 @@ tabs_anova <- Phenotypes_ANOVA_adj %>% group_split(Table_Name)
 write_csv(wing_pvals_adj, "../../Tables/wing_pvals_adj.csv")
 ```
 
+#### Rename ANOVA table headers
+
+```{r}
+ANOVA_tabterms <- list(
+  "term" = gt::html("Effect"),
+  "sumsq" = gt::html("SS"),
+  "meansq" = gt::html("MS"),
+  "NumDF" = gt::html("df<sub>num</sub>"),
+  "DenDF" = gt::html("df<sub>den</sub>"),
+  "statistic" = gt::html("F"),
+  "p.value" = gt::html("P"),
+  "adj_pval" = gt::html("adj. P")
+)
+```
+
 #### Save activity assay tables
 
 ```{r}
@@ -285,20 +300,29 @@ act_aic_tab <- activity_AIC %>%
   dplyr::select('Model formula' = Modnames, K, AICc, Delta_AICc,
   'AICc weight' = AICcWt, LL) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(
     title = "AICc results for models fit for activity assay")
 
 act_ANOVA_adj_tab <- tabs_anova[[1]] %>% 
-  dplyr::select(-(1:3)) %>% 
+  dplyr::select(-(1:3)) %>%
   datasummary_df(fmt = 4, output = 'gt') %>% 
+    cols_label(.list = ANOVA_tabterms) %>% 
+    tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "ANOVA table for activity assay")
 
-act_tuk_adj_tab <- activity_Tukey_adj %>% 
+act_tuk_adj_tab <- activity_Tukey_adj %>% dplyr::select(-df) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "Tukey HSD results for activity assay ANOVA")
 
 act_etasq_tab <- activity_etasq %>% dplyr::select(-1, -2) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "partial eta-squared table for activity assay")
 
 # Save all activity tables into a single docx
@@ -314,17 +338,24 @@ factflt_aic_tab <- factflight_AIC %>%
   dplyr::select('Model formula' = Modnames, K, AICc, Delta_AICc,
   'AICc weight' = AICcWt, LL) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(
     title = "AICc results for models fit for factorial flight performance assay")
 
 factflt_ANOVA_adj_tab <- tabs_anova[[2]] %>% 
   dplyr::select(-(1:3)) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  cols_label(.list = ANOVA_tabterms) %>% 
+    tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "ANOVA table for factorial flight performance assay")
 
 factflt_etasq_tab <- factflight_etasq %>% 
   dplyr::select(-1, -2) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "partial eta-squared table for factorial flight performance assay")
 
 # Save all factorial flight performance tables into a single docx
@@ -340,17 +371,24 @@ logfec_aic_tab <- fecundity_AIC %>%
   dplyr::select('Model formula' = Modnames, K, AICc, Delta_AICc,
   'AICc weight' = AICcWt, LL) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(
     title = "AICc results for models fit for fecundity assay (log fecundity)")
 
 fec_ANOVA_adj_tab <- tabs_anova[[3]] %>% 
   dplyr::select(-(1:2)) %>% 
-  datasummary_df(fmt = 4, output = 'gt') %>% 
+  datasummary_df(fmt = 4, output = 'gt') %>%
+  cols_label(.list = ANOVA_tabterms) %>% 
+    tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "ANOVA tables for fecundity assay (1. per-capita fecundity; 2. log-transformed per-capita fecundity)")
 
 fec_etasq_tab <- fecundity_etasq %>% 
   dplyr::select(-1) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "partial eta-squared table for fecundity assay (1. per-capita fecundity; 2. log-transformed per-capita fecundity)")
 
 corr_names <- list("CON" = fecCON_corr[[1]], "FP" = fecFP_corr[[1]])
@@ -358,6 +396,8 @@ corr_names <- list("CON" = fecCON_corr[[1]], "FP" = fecFP_corr[[1]])
 fec_corr_tab <- bind_rows(
   corr_names, .id = "Selection") %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "correlation tables for fecundity assay for number of females vs. fecundity")
 
 # Save all fecundity tables into a single docx
@@ -374,8 +414,11 @@ fltevol_ANOVA_adj_tab <- tabs_anova[[4]] %>%
     "Sel_Gen_fact" ~ "Selection \u00D7 Gen",
     "CON_Gen" ~ "Gen (only CON)",
     "FP_Gen" ~ "Gen (only FP)"
-  )) %>% 
+  )) %>% mutate(term = str_replace_all(term, "GenFP", "Generation")) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  cols_label(.list = ANOVA_tabterms) %>% 
+    tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "ANOVA tables for evoluton of flight performance")
 
 fltevol_etasq_tab <- flightevol_etasq %>% 
@@ -384,8 +427,10 @@ fltevol_etasq_tab <- flightevol_etasq %>%
     "Sel_Gen_fact" ~ "Selection \u00D7 Gen",
     "CON_Gen" ~ "Gen (only CON)",
     "FP_Gen" ~ "Gen (only FP)"
-  )) %>% 
+  )) %>% mutate(Parameter = str_replace_all(Parameter, "GenFP", "Generation")) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "partial eta-squared tables for evolution of flight performance")
 
 # Save all evolution of flight performance tables into docx
@@ -402,6 +447,9 @@ mass_ANOVA_adj_tab <- tabs_anova[[5]] %>%
     "Sel_Females" ~ "Females",
     "Sel_Males" ~ "Males"
   )) %>% datasummary_df(fmt = 4, output = 'gt') %>% 
+  cols_label(.list = ANOVA_tabterms) %>% 
+    tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "ANOVA tables for dry mass assay")
 
 mass_etasq_tab <- mass_etasq %>% 
@@ -409,6 +457,8 @@ mass_etasq_tab <- mass_etasq %>%
     Model,
     "SelxSex" ~ "Selection \u00D7 Sex")) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "partial eta-squared table for dry mass assay")
 
 gt_group(mass_ANOVA_adj_tab, mass_etasq_tab) %>% 
@@ -421,10 +471,15 @@ gt_group(mass_ANOVA_adj_tab, mass_etasq_tab) %>%
 surv_ANOVA_adj_tab <- tabs_anova[[6]] %>% 
   dplyr::select(-(1:3)) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  cols_label(.list = ANOVA_tabterms) %>% 
+    tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "ANOVA tables for survivorship assay")
 
 surv_etasq_tab <- surv_etasq %>% dplyr::select(-(1:2)) %>% 
   datasummary_df(fmt = 4, output = 'gt') %>% 
+  tab_style(style = cell_text(style = "italic"),
+              locations = cells_column_labels(columns = everything())) %>% 
   tab_header(title = "partial eta-squared tables for survivorship assay")
 
 gt_group(surv_ANOVA_adj_tab, surv_etasq_tab) %>% 
