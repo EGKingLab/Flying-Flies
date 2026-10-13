@@ -304,54 +304,10 @@ Reg_GOplot <- function(ChArm, StPos, EnPos)
   theme_cowplot() +
   theme(legend.title = element_text(face = 'bold'))
   
-  #print(GO_reg_scan)
-  
-  # ggsave(GO_reg_scan, filename = "../../Plots/GO_hap_try.jpeg", 
-  #        dpi = 300, height = 12, width = 12)
 
-#   GO_matrix <- ggplot(data = GOhap, aes(x = POS/1e6, y = pathway_name)) +
-#     geom_point(aes(size = -log10(adj_p), color = -log10(adj_p)), alpha = 0.5) +
-#   geom_label_repel(aes(label = symbol), size = 3, max.overlaps = 10, box.padding = 0.3) +
-#   theme_cowplot()
-# 
-#   #print(GO_matrix)
-#   
-#   # maybe color heat plot by number of significant sites or by gene size
-# 
-#   heat_plot_data <- GOhap %>% group_by(pathway_name, symbol) %>%
-#   # slices each pathway and symbol combination to only select the row (SNP) which has the lowest adjusted p-value
-#   slice_min(order_by = .data[["adj_p"]],
-#   # single value, in case of ties (draws) in max value,
-#   # first n value is considered
-#             n = 1, with_ties = FALSE) %>% ungroup() %>%
-#   # symbol is a list, this makes symbol a factor
-#   mutate(symbol = sapply(symbol,
-# function(x) ifelse(length(x)>0, x[1], NA_character_))) %>%
-#   mutate(symbol = factor(symbol),
-#          pathway_name = factor(pathway_name))
-# 
-#   heat_plot_GO <- heat_plot_data %>%
-#   ggplot(aes(x = symbol, y = pathway_name, fill = adj_p)) +
-#   geom_tile(color = 'white', linewidth = 0.5) +
-#   #geom_text(aes(label = sig_sites),
-#    #         color = 'black', fontface = 'bold', size = 4) +
-#   scale_fill_viridis_c(option = 'plasma', direction = -1) +
-#   labs(y = "Biological Process", x = "Gene Symbol",
-#     fill = "adjusted P-value",
-#   title = paste0("Genes contributing to Enriched Biological Processes
-#                  \nChromosome Arm: ", ChArm)) +
-#   theme_cowplot() +
-#   theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1))
-
-  #print(heat_plot_GO)
-
-  
   chrom_fig <- hplot + (ranks_plot/GO_reg_scan) + 
     plot_annotation(tag_levels = "A")
-  
-  # GO_fig2 <- GO_matrix/heat_plot_GO + plot_annotation(tag_levels = "A")
-  # 
-  # out_list <- list(chrom_fig, GO_fig2)
+
   return(chrom_fig)
 }
 
@@ -374,29 +330,9 @@ for (chr in chrom_arms){
   rankscango_fig <- Reg_GOplot(chr, StPos, EnPos)
   # Save the rank and scan plot with GO integration
   ggsave(rankscango_fig, filename = paste0("../../Plots/fullhapGO_", chr, ".jpeg"), 
-            dpi = 400, height = 17, width = 22)
+            dpi = 400, height = 22, width = 17)
   
   # remove outplots list to save memory
   rm(freq_coords_chrom, StPos, EnPos, rankscango_fig)
 }
-```
-
-```{r}
-coord_data_full <- readRDS(file = "../../../Big_data/FF_genomes_filtered.RDS")
-
-chrom = '2R'
-
-freq_coords_chrom <- coord_data_full %>% filter(CHROM == chrom)
-  # Use this code for entire chromosome plots
-  # StPos <- as.integer(min(freq_coords_chrom$POS))
-  # EnPos <- as.integer(max(freq_coords_chrom$POS))
-  
-StPos <- 2.12e+07
-EnPos <- 2.16e+07
-
-try_fig <- Reg_GOplot(chrom, StPos, EnPos)
-  
-ggsave(try_fig, filename =
-    "../../Plots/try_reghapgo.jpeg", 
-    dpi = 400, height = 22, width = 17)
 ```
