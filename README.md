@@ -272,5 +272,24 @@ supplementary figure Z (heatmaps of Fst Hudson and Fst Nei):
 
 ### Haplotype analysis
 
+Run the files ... to generate required files in the Big Data folder.
+
+NOTE: to run the following files, please run the Gene Ontology and Enrichment analyses codes
+Following this, run the file:
+`Flight_Exp_Evo_1/Code/Genomics/Compfrq_Fullchrom_GOplot.qmd`
+This will generate the full chromosome arm plots (S14-S18) for the haplotype analyses.
+Run the file:
+`Flight_Exp_Evo_1/Code/Genomics/Compfrq_Reg_GOplot.qmd`
+to generate figure 9 (region of interest, chromosome arm 2R).
 
 ### Gene Ontology and Enrichment analyses
+First, run the file:
+`Flight_Exp_Evo_1/Code/Genomics/gene_enrichment.qmd`
+The above file runs Gene Ontology and Enrichment analyses for SNP differentiation using linear models.
+It also saves gene mapping and enrichment data.
+Next, run the file:
+`Flight_Exp_Evo_1/Code/Genomics/Hap_gene_enrichment.qmd`
+This runs GO enrichment analyses for haplotype analyses on genomic data.
+The file saves enrichment plot (S13), enrichment tables, gene overlap tables, 
+top 10 genes figure (fig. 10) and data for haplotype plots.
+
