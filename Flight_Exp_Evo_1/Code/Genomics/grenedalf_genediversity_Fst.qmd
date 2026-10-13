@@ -653,7 +653,8 @@ ggsave(thetapi_box, filename = "../../Plots/sfig_genediv.jpeg",
        dpi = 400, width = 8.5, height = 5.5)
 
 # figure in publication (combining gene div. and fst)
-ggsave(fig_div_fst, filename = "../../Plots/div_fst_fig.jpeg", dpi = 400, width = 17, height = 11)
+ggsave(fig_div_fst, filename = "../../Plots/div_fst_fig.jpeg", 
+       dpi = 400, width = 8.5, height = 11)
 ```
 
 ==============================================
