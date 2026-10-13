@@ -89,7 +89,14 @@ loc_annot_df[list_cols] <- lapply(loc_annot_df[list_cols], function(col) {
 ### Gene Enrichment
 
 ```{r}
-ensembl <- useEnsembl(biomart = "genes", dataset = "dmelanogaster_gene_ensembl")
+# Run once then comment out
+# ensembl <- useEnsembl(biomart = "genes", 
+#            dataset = "dmelanogaster_gene_ensembl")
+# 
+# # save ensembl data. Run once then comment out.
+# saveRDS(ensembl, file = "../../../Big_data/ensembl_data.RDS")
+
+ensembl <- readRDS("../../../Big_data/ensembl_data.RDS")
 
 mapped_gene_IDs <- unique(c(sig_gene_IDs, SNP_gene_IDs))
 
@@ -145,7 +152,7 @@ SNP_enrich_plt <- dotplot(GO_simple, showCategory = 21)
 print(SNP_enrich_plt)
 ```
 
-#### Extract definitions of Biological Process GO terms
+#### Extract definitions of Biological Process GO terms, Save table
 
 ```{r}
 SNP_enrich_defs <- as_tibble(GO_simple)
@@ -155,8 +162,7 @@ SNP_enrich_defs$Definitions <- sapply(SNP_enrich_defs$ID, function(id) {
   if (is.null(def)) return(NA) else return(def)
 })
 
-SNP_enrich_defs <- SNP_enrich_defs %>% 
-  dplyr::select(ID, Description, Definitions)
+write_csv(SNP_enrich_defs, "../../Tables/SNP_enrich_table.csv")
 ```
 
 ### Combination of SNP data with enriched biological pathways
