@@ -15,7 +15,6 @@ library(ggrastr)
 library(cowplot)
 library(ggrepel)
 library(patchwork)
-library(scatterpie)
 library(paletteer)
 ```
 
