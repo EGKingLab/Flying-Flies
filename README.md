@@ -67,12 +67,9 @@ An RDS file containing the list of all tables is saved in:
 
 ### Generating plots for the activity measurement assay (figure 4)
 
-Run the following file *first*:
-`Flight_Exp_Evo_1/Code/Phenotypes/PreProcess_Activity.R`
+Run the QMD file: `Flight_Exp_Evo_1/Code/Phenotypes/Activity.qmd`
 
-Next, run the QMD file: `Flight_Exp_Evo_1/Code/Phenotypes/Activity.qmd`
-
-The script reads data stored in the Raw_data folder and generates figure
+The script reads data that must be obtained from Zenodo and generates figure
 4 from the manuscript in:
 
 `Flight_Exp_Evo_1/Plots/act_dist_fig.jpeg`
@@ -80,6 +77,8 @@ The script reads data stored in the Raw_data folder and generates figure
 An RDS file containing the list of all tables is saved in:
 
 `Flight_Exp_Evo_1/Tables/act_tables.RDS`
+
+The scripts needed to create the compiled data in Zenodo are in the Activity_pre_process folder and the raw video files are also on Zenodo.
 
 ### Generating plots for wing morphometrics (figure 5)
 
@@ -272,7 +271,10 @@ supplementary figure Z (heatmaps of Fst Hudson and Fst Nei):
 
 ### Haplotype analysis
 
-Run the files ... to generate required files in the Big Data folder.
+Run the following:
+1. Haplotype_Inference_Setup.qmd to set up the data needed to perform inference
+2. Haplotype_Inference.R to estimate haplotype frequencies genome-wide
+3. GenomeScan_Haplotypes to test for significant haplotype frequency differences
 
 NOTE: to run the following files, please run the Gene Ontology and Enrichment analyses codes
 Following this, run the file:

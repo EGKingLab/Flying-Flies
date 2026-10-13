@@ -18,9 +18,9 @@ library(tidyverse)
 ```{r}
 #| eval: false
 
-pool.snp <- readRDS(file = "/home/srikantv/Flying_Flies_Phenotyping/Big_data/FF_genomes_filtered.RDS")
+pool.snp <- readRDS(file = "../../../Big_data/FF_genomes_filtered.RDS")
 
-found.snp <- readRDS(file="/home/kingeg/Projects/MyGithub/HaplotypeEstimator/BigData/foundersnptable_convertedtoR6.rds")
+found.snp <- readRDS(file="../../../Big_data/foundersnptable_convertedtoR6.rds")
 
 merge.snp.table <- inner_join(pool.snp, found.snp, by = join_by(CHROM, POS))
 

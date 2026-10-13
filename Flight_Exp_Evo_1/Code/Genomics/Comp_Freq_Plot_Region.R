@@ -183,3 +183,13 @@ p1 <- Reg_plot(ChArm, StPos, EnPos)
 #I recommend saving to file, not trying to look at it in the window- too big
 ggsave(p1, file = paste0("../../Plots/Comparison_Scan_",ChArm,"_",StPos,"_",EnPos,".png"), width = 4.5, height = 5.5)
 
+ChArm <- "3R"
+#make sure to use as.integer so it prints in not sci notation
+StPos <- as.integer(11011656)
+EnPos <- as.integer(11015170)
+
+p1 <- Reg_plot(ChArm, StPos, EnPos)
+
+#I recommend saving to file, not trying to look at it in the window- too big
+ggsave(p1, file = paste0("../../Plots/Comparison_Scan_",ChArm,"_",StPos,"_",EnPos,".png"), width = 4.5, height = 5.5)
+
