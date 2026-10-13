@@ -89,7 +89,14 @@ loc_annot_df[list_cols] <- lapply(loc_annot_df[list_cols], function(col) {
 ### Gene Enrichment
 
 ```{r}
-ensembl <- useEnsembl(biomart = "genes", dataset = "dmelanogaster_gene_ensembl")
+# Run once then comment out
+# ensembl <- useEnsembl(biomart = "genes", 
+#            dataset = "dmelanogaster_gene_ensembl")
+# 
+# # save ensembl data. Run once then comment out.
+# saveRDS(ensembl, file = "../../../Big_data/ensembl_data.RDS")
+
+ensembl <- readRDS("../../../Big_data/ensembl_data.RDS")
 
 mapped_gene_IDs <- unique(c(sig_gene_IDs, SNP_gene_IDs))
 
@@ -156,11 +163,10 @@ GO_res_read <- setReadable(GO_results, OrgDb = org.Dm.eg.db,
 
 gene_netplt <- cnetplot(GO_simple, showCategory = 13)
 
-ggsave(gene_netplt, filename = "../../Plots/temp_gene_net.jpeg",
-       dpi = 400, width = 12, height = 12)
+print(gene_netplt)
 ```
 
-#### Extract definitions of Biological Process GO terms
+#### Extract definitions of Biological Process GO terms, Save table
 
 ```{r}
 Hap_enrich_defs <- as_tibble(GO_simple)
@@ -170,13 +176,13 @@ Hap_enrich_defs$Definitions <- sapply(Hap_enrich_defs$ID, function(id) {
   if (is.null(def)) return(NA) else return(def)
 })
 
-Hap_enrich_defs <- Hap_enrich_defs %>% 
-  dplyr::select(ID, Description, Definitions)
+write_csv(Hap_enrich_defs, 
+          file = "../../Tables/Hap_enrich_table.csv")
 ```
 
-### Combination of SNP data with enriched biological pathways
+### Combination of significant SNP data with enriched biological pathways
 
-This code aims to combine a manhattan plot of significance with gene enrichment data.
+This code aims to combine a Manhattan plot of significance with gene enrichment data.
 
 #### Get SNP positions for enriched pathways
 
@@ -286,6 +292,9 @@ print(Hap_sig_path_plot)
 ```
 
 ```{r}
+# load Drosophila melanogaster genomic architechture
+txdb <- TxDb.Dmelanogaster.UCSC.dm6.ensGene
+
 # get gene length
 exons <- exonsBy(txdb, by = "gene")
 gene_lengths <- sum(width(reduce(exons)))
@@ -378,16 +387,6 @@ print(heat_plot_GO_dens)
 #### Scanplot + heatplot of genes and pathways
 
 ```{r}
-# hap_scan_GO_fig <- free(Hap_sig_path_plot)/free(heat_plot_GO) +
-#   plot_layout(heights = c(2, 1), guides = 'keep') +
-#   plot_annotation(
-#   title = "Haplotype frequency differentiation: mapping GO terms",
-#   tag_levels = 'A') 
-# 
-# ggsave(hap_scan_GO_fig, filename = 
-#          "../../Plots/hap_scan_GO_fig.jpeg", 
-#        dpi = 400, width = 12, height = 12)
-
 heat_fig_GO <- heat_plot_GO_dens/heat_plot_GO_sig +
   plot_annotation(tag_levels = 'A')
 
@@ -395,7 +394,43 @@ ggsave(heat_fig_GO, filename = "../../Plots/heat_fig_GO.jpeg",
        dpi = 400, width = 12, height = 12)
 ```
 
-#### Enrich plots
+### Genes of interest: founder lines differences and ranks
+
+```{r}
+genes_of_interest <- heat_plot_data %>% 
+  filter(density_rank <= 10 & sites_rank <= 10) %>%
+  mutate(symbol = as.character(symbol)) %>% 
+  distinct(symbol)
+
+hap_genes_map <- snp_pathways %>% #filter(adj_p < 0.001) %>%
+  # symbol is a list, this makes symbol a factor
+  mutate(symbol = sapply(symbol, 
+  function(x) ifelse(length(x)>0, x[1], NA_character_))) %>%
+  filter(symbol %in% (genes_of_interest %>% pull(symbol)))
+  
+#Load founder haplotypes difference data
+hap2L <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_2L.Rds")
+hap2R <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_2R.Rds")
+hap3L <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_3L.Rds")
+hap3R <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_3R.Rds")
+hapX <- readRDS("../../../Big_data/Haplotype_Inf/HapScan_X.Rds")
+
+haptotal <- bind_rows(hap2L, hap2R, hap3L, hap3R, hapX)
+
+# drop NA values only from the O_p column
+haptotal <- haptotal %>% rename(CHROM = ChArm, POS = Ppos) %>% drop_na(O_p) %>% 
+  dplyr::select(CHROM, POS, ends_with("_D")) 
+
+genes_hapdiff <- hap_genes_map %>% left_join(haptotal, by = c("CHROM", "POS")) %>% 
+    pivot_longer(
+      cols = contains("_D"),
+      names_pattern = "(.*)\\_D",
+      names_to = "Founder",
+      values_to = "Difference"
+      )
+```
+
+### Enrich plots
 
 Load SNP enrich plot
 
@@ -512,23 +547,19 @@ SNP analysis overlaps
 
 ```{r}
 # testing overlaps between haplotype analysis and SNP differentiation for genes, pathways
-hap_SNP_genes_ol <- intersect(hap_genes, SNP_genes)
-hap_SNP_genesymbols_ol <- intersect(hap_genesymbols, SNP_genesymbols)
-hap_SNP_pathways_ol <- intersect(hap_pathways, SNP_pathways)
+hap_SNP_genes_ol <- intersect(hap_genes, SNP_genes) # No overlap
+hap_SNP_genesymbols_ol <- intersect(hap_genesymbols, SNP_genesymbols) # No overlap
+hap_SNP_pathways_ol <- intersect(hap_pathways, SNP_pathways) # No overlap
 
 # testing overlaps between SNP differentiation analysis and Spierer et al. 2021 data for genes, pathways
-SNP_spierer_genes_ol <- intersect(SNP_genes, spierer_genes)
+SNP_spierer_genes_ol <- intersect(SNP_genes, spierer_genes) # No overlap
 SNP_spierer_symbols_ol <- intersect(
   SNP_genesymbols, spierer_genesymbols)
 
 # testing overlaps between SNP differentiation analysis and Pitcher et al. 2019 data for genes, pathways
-SNP_pitcher_path_ol <- intersect(SNP_pathways, pitcher_pathways)
-SNP_pitcher_genes_ol <- intersect(SNP_genes, pitcher_genes)
-# SNP_pitcher_overlaps <- tibble(
-#   overlap_genes = SNP_pitcher_genes_ol) %>% 
-#   left_join(SNP_enrich,  
-#             by = c("overlap_genes" = "ensembl_gene_id")) %>% 
-#   distinct(overlap_genes, .keep_all = TRUE)
+SNP_pitcher_path_ol <- intersect(SNP_pathways, pitcher_pathways) # No overlap
+SNP_pitcher_genes_ol <- intersect(SNP_genes, pitcher_genes) # One overlap: FBgn0004595 (pros)
+
 ```
 
 Haplotype analysis overlaps
@@ -544,6 +575,8 @@ hap_spierer_overlaps <- tibble(
             by = c("overlap_genes" = "ensembl_gene_id")) %>% 
   distinct(overlap_genes, .keep_all = TRUE)
 
+# Save overlap table
+write_csv(hap_spierer_overlaps, "../../Tables/hap_spierer_overlaps.csv")
 
 # testing overlaps between haplotype analysis and Pitcher et al. 2019 data for genes, pathways
 hap_pitcher_path_ol <- intersect(hap_pathways, pitcher_pathways)
@@ -553,4 +586,8 @@ hap_pitcher_overlaps <- tibble(
   left_join(hap_enrich,  
             by = c("overlap_genes" = "ensembl_gene_id")) %>% 
   distinct(overlap_genes, .keep_all = TRUE)
+
+# Save overlap table
+write_csv(hap_pitcher_overlaps, "../../Tables/hap_pitcher_overlaps.csv")
+
 ```
