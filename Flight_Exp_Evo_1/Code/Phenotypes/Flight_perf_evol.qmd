@@ -15,7 +15,6 @@ library(tidyverse)
 library(lme4)
 library(lmerTest)
 library(cowplot)
-library(scales)
 library(patchwork)
 library(effectsize)
 library(gt)
@@ -162,65 +161,6 @@ print(mean_flightgen_plot)
 
 ```
 
-### Heatmaps
-
-```{r}
-# averages over runs for heat plot
-Flight_plot_data <- FlightGen_data %>% mutate(
-  ChamberNum = parse_number(Chamber),
-  GenFP = paste0("Gen", GenFP),
-  Replicate = paste0("R", Replicate)) %>% 
-  group_by(Selection, Replicate, GenFP, ChamberNum) %>% 
-  summarise(FlyFreq = mean(FlyFreq))
-
-
-# heat_flightgen <- Flight_plot_data %>% 
-#   ggplot(aes(x = GenFP, y = ChamberNum, fill = FlyFreq)) +
-#   facet_grid(Replicate ~ Selection) +
-#   geom_tile() +
-#   scale_fill_viridis_c(option = 'magma',trans = 'log10', na.value = 'white', direction = -1) +
-#   theme_cowplot() 
-# 
-# print(heat_flightgen)
-
-
-heat_onlysel <- Flight_plot_data %>% 
-  group_by(Selection, GenFP, ChamberNum) %>% 
-  summarise(MeanFreq = mean(FlyFreq)) %>% 
-  ggplot(aes(x = Selection, y = ChamberNum, fill = MeanFreq)) +
-  facet_grid(. ~ factor(GenFP, levels = 
-      str_sort(unique(as.character(GenFP)), numeric = TRUE)),
-      labeller = label_value) +
-  geom_tile() +
-  scale_fill_viridis_c(option = 'plasma',trans = 'log10', 
-    na.value = 'white', direction = -1, 
-    labels = label_log(digits = 2),
-    breaks = c(0.001, 0.01, 0.1, 1),
-    name = "Mean frequency of flies") +
-  theme_cowplot() + theme(legend.position = 'bottom', 
-    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + labs(y = "Chamber")
-
-print(heat_onlysel)
-
-heat_flightgen2 <- Flight_plot_data %>% 
-  ggplot(aes(x = Selection, y = ChamberNum, fill = FlyFreq)) +
-  facet_grid(Replicate ~ factor(GenFP, levels = 
-      str_sort(unique(as.character(GenFP)), numeric = TRUE)),
-      labeller = label_value) +
-  geom_tile() +
-  scale_fill_viridis_c(option = 'magma',trans = 'log10', 
-    na.value = 'white', direction = -1, 
-    labels = label_log(digits = 2),
-    breaks = c(0.001, 0.01, 0.1, 1),
-    name = "Proportion of Flies") +
-  theme_cowplot() + theme(legend.position = 'bottom', 
-    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + labs(y = "Chamber")
-
-print(heat_flightgen2)
-
-
-```
-
 ### Jitter plots in bounding boxes (number of flies in each chamber)
 
 Sample 2500 flies from each treatment combination and plot within chamber boxes.
@@ -358,34 +298,4 @@ Tables
 ```{r}
 # Save list of tables
 saveRDS(fltevol_tables, "../../Tables/fltevol_tables.RDS")
-
-
-# # model with Selection and Generation: ANOVA
-# gt1 <- a_selgen %>% broom::tidy() %>% 
-#   datasummary_df(fmt = 3, output = 'gt') %>% 
-#   tab_header(title = "ANOVA results, evolution of flight performance (both Selection and Generation)")
-# 
-# # eta-squared partial and cohens_f partial with fecundity log transformation
-# gt3 <- e_fit_Fec_log  %>% 
-#   datasummary_df(fmt = 3, output = 'gt') %>% 
-#   tab_header(title = "Partial Eta-squared value, log-transformed per capita fecundity")
-# 
-# # model without log transformation: ANOVA
-# gt4 <- a_fit_Fec %>% broom::tidy() %>% 
-#   datasummary_df(fmt = 3, output = 'gt') %>% 
-#   tab_header(title = "ANOVA results, per capita fecundity")
-# 
-# 
-# # correlation of total female population size and total fecundity
-# # CON correlation
-# CON_corr <- gt(tidy(corr_fecpop[[1]])) %>% 
-#   tab_header(title = "Correlation of female population size and total fecundity: CON")
-#   
-# # FP correlation
-# FP_corr <- gt(tidy(corr_fecpop[[2]])) %>% 
-#   tab_header(title = "Correlation of female population size and total fecundity: FP")
-# 
-# # Save all tables into a single docx
-# gt_group(gt1, gt2, gt3, gt4, CON_corr, FP_corr) %>% 
-#   gtsave("../../Tables/fecundity_tables.docx")
 ```
