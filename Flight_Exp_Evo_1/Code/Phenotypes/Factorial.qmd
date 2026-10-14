@@ -1,7 +1,3 @@
-Refer to manuscript: (link)
-
-#### Authors: Srikant Venkitachalam,.... Elizabeth King
-
 # [Selection for improved flight performance]{.underline}
 
 ## Flight performance factorial assay:

@@ -1,7 +1,3 @@
-Refer to manuscript: (link)
-
-#### Authors: Srikant Venkitachalam,.... Elizabeth King
-
 # Selection for improved flight performance
 
 ## Fecundity
@@ -16,7 +12,6 @@ library(tidyverse)
 library(cowplot)
 library(AICcmodavg)
 library(lmerTest)
-library(nlme)
 library(effectsize)
 library(gt)
 library(modelsummary)
@@ -80,14 +75,6 @@ fit_Fec_log <- lmer(data = Fecund_data, REML = TRUE,
 
 a_fit_Fec_log <- anova(fit_Fec_log)
 e_fit_Fec_log <- eta_squared(fit_Fec_log)
-# c_fit_Fec_log <- cohens_f(fit_Fec_log)
-# e_fit_Fec_log <- left_join(e_fit_Fec_log, c_fit_Fec_log, by = "Parameter")
-
-# fit_Fec_logplate <- lmer(data = Fecund_data, REML = TRUE,
-#         log_Fec ~ Selection * Plate + (1|PopRep))
-# 
-# a_fit_Fec_logplate <-anova(fit_Fec_logplate)
-# e_fit_Fec_logplate <- eta_squared(fit_Fec_logplate)
 
 # per capita fecundity ANOVA
 fit_Fec <- lmer(data = Fecund_data, REML = TRUE,
@@ -151,14 +138,6 @@ print(indfec_plates)
 #### Analyses of total fecundity, effect of plates
 
 ```{r}
-# totfec_data <- Fecund_data %>% group_by(Selection, Replicate) %>% summarise(TotFec = sum(Fecundity), TotF = mean(TotF)) %>%
-#   mutate(Ind_totFec = TotFec/TotF)
-
-# totfecbypop_mod <- lm(data = totfec_data, 
-#                       formula = TotFec ~ TotF)
-# 
-# anova(totfecbypop_mod)
-
 corr_fecpop <- Fecund_data %>% 
   group_split(Selection) %>% 
   map(~cor.test(.x$TotF, .x$Fecundity, method = 'pearson'))
@@ -168,19 +147,6 @@ names(corr_fecpop) <- levels(Fecund_data$Selection)
 print(corr_fecpop$CON)
 print(corr_fecpop$FP)
 
-# totFbySel <- lm(data = totfec_data, 
-#                 formula = TotF ~ Selection)
-# 
-# anova(totFbySel)
-# 
-# totIndfec_mod <- lm(data = totfec_data,
-#                     formula = Ind_totFec ~ Selection)
-# 
-# anova(totIndfec_mod)
-# 
-# ggplot(data = totfec_data) + 
-#   geom_point(aes(x = Selection, y = Ind_totFec, shape = Replicate, color = Selection), position = position_jitter(width = 0.1)) + theme_cowplot()
-
 fec_tables <- c(fec_tables, list(
   corr_fecpopCON = corr_fecpop$CON, 
   corr_fecpopFP = corr_fecpop$FP))
@@ -189,8 +155,6 @@ fec_tables <- c(fec_tables, list(
 #### Save fecundity plot
 
 ```{r}
-# ggsave(fec_plot, filename = "../../Plots/fec_plot.jpeg", dpi = 400, width = 12, height = 6)
-
 # Save plot data
 saveRDS(fec_plot, file = "../../Plots/ggplot_files/fec_plot.RDS")
 
@@ -207,46 +171,6 @@ ggsave(Fec_supp_fig, filename = "../../Plots/fec_supp_fig.jpeg",
 
 #### Save tables
 
-Save list
-
 ```{r}
 saveRDS(fec_tables, "../../Tables/fec_tables.RDS")
-```
-
-```{r}
-# AIC model
-gt1 <- aic_fec %>% as.data.frame() %>% dplyr::select(
-  'Model formula' = Modnames, K, AICc, Delta_AICc,
-  'AICc weight' = AICcWt, LL
-) %>% datasummary_df(fmt = 3, output = 'gt') %>% 
-  tab_header(title = "AICc results for models fit for per capita fecundity")
-
-# model with log transformation: ANOVA
-gt2 <- a_fit_Fec_log %>% broom::tidy() %>% 
-  datasummary_df(fmt = 3, output = 'gt') %>% 
-  tab_header(title = "ANOVA results, log-transformed per capita fecundity")
-
-# eta-squared partial and cohens_f partial with fecundity log transformation
-gt3 <- e_fit_Fec_log  %>% 
-  datasummary_df(fmt = 3, output = 'gt') %>% 
-  tab_header(title = "Partial Eta-squared value, log-transformed per capita fecundity")
-
-# model without log transformation: ANOVA
-gt4 <- a_fit_Fec %>% broom::tidy() %>% 
-  datasummary_df(fmt = 3, output = 'gt') %>% 
-  tab_header(title = "ANOVA results, per capita fecundity")
-
-
-# correlation of total female population size and total fecundity
-# CON correlation
-CON_corr <- gt(tidy(corr_fecpop[[1]])) %>% 
-  tab_header(title = "Correlation of female population size and total fecundity: CON")
-  
-# FP correlation
-FP_corr <- gt(tidy(corr_fecpop[[2]])) %>% 
-  tab_header(title = "Correlation of female population size and total fecundity: FP")
-
-# Save all tables into a single docx
-gt_group(gt1, gt2, gt3, gt4, CON_corr, FP_corr) %>% 
-  gtsave("../../Tables/fecundity_tables.docx")
 ```
