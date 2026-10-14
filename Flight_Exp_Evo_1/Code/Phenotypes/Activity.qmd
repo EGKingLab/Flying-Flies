@@ -189,12 +189,6 @@ anova(support_mod)
 eta_squared(support_mod)
 cohens_f(support_mod)
 
-# testmod <- lmer(data = act_dist, REML = TRUE,
-#   Tot_d ~ Selection*Sex + (1|PopRep) + (1|Selection:Assay_set))
-# anova(testmod)
-# eta_squared(testmod)
-# cohens_f(testmod)
-
 # tests variance of different variables. In a singular fit, the variance of a term is 0, so it should be removed.
 # (1|Assay_set), (1|Selection:Sex:Assay_set), (1|Sex:Assay_set)
 # have 0 variance.
@@ -313,46 +307,4 @@ ggsave(act_dist_fig, filename = "../../Plots/act_dist_fig.jpeg", dpi = 400, widt
 
 ```{r}
 saveRDS(act_tables, "../../Tables/act_tables.RDS")
-```
-
-## Time spent moving, and speed calculations
-
-#### Time spent moving
-
-From Natalie's notes:
-
-"#the nest step is to look at the vids to compare when I think fly is moving vs graph of DLC thinks it is moving, determine what number of pixels changed is "moving" ##I decided that when d \>= 0.3, fly is "moving" ##then I quantify what amount of time each fly was moving"
-
-Once time difference between frames is calculated (see below), there are several frames which have a long time gap in between. We will filter out all
-
-Thus, d\>=0.3 will be assumed as fly movement. This will then be used to estimate time spent moving.
-
-```{r}
-# See overall time distribution
-act_data %>% ggplot(aes(x = Second)) + geom_histogram()
-
-# Count number of flies per run
-act_counts <- act_data %>% group_by(Selection, PopReplicate, Assay_set, Run, Tube) %>% summarise(N = n())
-
-# Classify if a fly is moving in a given frame, and then calculate the time difference between frames
-act_time <- act_data %>% mutate(
-  Moving = ifelse(d >= 0.3, "yes", "no")) %>% 
-  group_by(Selection, PopReplicate, PopRep, Assay_set, Run, Tube, Sex) %>% mutate(Time_diff = c(Second[1], diff(Second))) %>% 
-  ungroup()
-
-testabc <- act_time %>% filter(Time_diff <= 1)
-
-# visualise the spread of time difference between frames
-act_time %>% ggplot(aes(x = Selection, y = Time_diff, color = Moving)) +
-  geom_boxplot()
-```
-
-### Speed calculation
-
-Total distance/Total time moved
-
-```{r}
-act_speed <- act_time %>% mutate(inst_speed = d/Time_diff)
-
-act_speed %>% ggplot() + geom_boxplot(aes(x = Selection, y = log10(inst_speed), color = Moving, fill = Sex))
 ```
