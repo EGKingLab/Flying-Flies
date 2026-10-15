@@ -12,7 +12,8 @@ The folders are arranged in the following manner:
 files).
 
 **Raw_data**: contains smaller raw data files, mainly phenotypic data.
-Processed_data: ..? (delete?)
+
+**Processed_data**: holds some processed genomic data.
 
 **Flight_Exp_Evo_1/Code**: contains all the code and scripts used to
 process raw data and generate plots and figures.
@@ -164,6 +165,7 @@ containing compiled tables in `Flight_Exp_Evo_1/Tables/`:
 ## Instructions for generating figures and tables for genomic data
 
 ### Aligning, cleanup and variant calling, parsing SNP tables
+NOTE: The read and write paths in this section have to be modified by the user!
 
 The nextflow code for alignment and variant calling are present in:
 `Flight_Exp_Evo_1/Code/Genomics/nf_vc_dsl2.nf`
